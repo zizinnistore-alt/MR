@@ -22,7 +22,7 @@ app.use(express.static(path.join(__dirname, 'public'))); // لخدمة المل�
 const upload = multer({ storage: multer.memoryStorage() });
 
 // 4. الاتصال بقاعدة البيانات (أو إنشائها إذا لم تكن موجودة)
-const db = new sqlite3.Database('./database.db', (err) => {
+const db = new sqlite3.Database('./database.db', sqlite3.OPEN_READONLY, (err) => {
     if (err) {
         console.error("Error opening database " + err.message);
     } else {
