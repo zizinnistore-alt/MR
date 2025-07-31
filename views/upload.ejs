@@ -1,0 +1,93 @@
+<!-- views/upload.ejs -->
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة التحكم - رفع البيانات</title>
+    <!-- استدعاء ملف الـ CSS -->
+    <link rel="stylesheet" href="/css/style.css">
+    <!-- استدعاء مكتبة أيقونات Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+    <header class="main-header">
+        <div class="container">
+            <h1>لوحة تحكم المشرف - مستر محمد جمعه</h1>
+            <div class="contact-info">
+                <span><i class="fas fa-phone"></i> 01098765432</span>
+                <span><i class="fas fa-map-marker-alt"></i> 13 شارع حلوان العام، القاهرة</span>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <div class="upload-container">
+            <h2>رفع ملف بيانات الطلاب</h2>
+            <p class="upload-instructions">
+                هنا يمكنك رفع ملف Excel جديد ليحل محل البيانات الحالية للطلاب. تأكد من أن الملف بالصيغة الصحيحة.
+            </p>
+
+            <% if (locals.error) { %>
+                <div class="alert alert-danger"><%= error %></div>
+            <% } %>
+            <% if (locals.success) { %>
+                <div class="alert alert-success"><%= success %></div>
+            <% } %>
+
+            <form action="/upload" method="POST" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="password">كلمة السر:</label>
+                    <input type="password" id="password" name="password" class="form-control" placeholder="أدخل كلمة السر هنا" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="sheet">ملف الإكسل:</label>
+                    <!-- الإدخال الفعلي للملف، لكنه مخفي -->
+                    <input type="file" id="sheet" name="sheet" accept=".xlsx, .xls" required style="display: none;">
+                    
+                    <!-- الزر المخصص الذي يراه المستخدم -->
+                    <label for="sheet" class="file-upload-label">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        اختر ملف الإكسل
+                    </label>
+                    <span id="file-name-display">لم يتم اختيار أي ملف</span>
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-block">
+                    <i class="fas fa-cogs"></i> رفع ومعالجة
+                </button>
+            </form>
+        </div>
+    </main>
+
+    <footer class="main-footer">
+        <div class="container">
+            <div class="social-links">
+                <a href="#" aria-label="YouTube"><i class="fab fa-youtube"></i></a>
+                <a href="#" aria-label="Facebook"><i class="fab fa-facebook-f"></i></a>
+                <a href="#" aria-label="WhatsApp"><i class="fab fa-whatsapp"></i></a>
+                <a href="#" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
+            </div>
+            <p>© 2024 جميع الحقوق محفوظة - مستر محمد جمعه</p>
+        </div>
+    </footer>
+
+    <script>
+        // هذا السكريبت الصغير لتحسين تجربة المستخدم عند اختيار الملف
+        const fileInput = document.getElementById('sheet');
+        const fileNameDisplay = document.getElementById('file-name-display');
+
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length > 0) {
+                // إذا تم اختيار ملف، اعرض اسمه
+                fileNameDisplay.textContent = fileInput.files[0].name;
+            } else {
+                // إذا تم إلغاء الاختيار، أعد النص الأصلي
+                fileNameDisplay.textContent = 'لم يتم اختيار أي ملف';
+            }
+        });
+    </script>
+</body>
+</html>

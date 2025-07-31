@@ -1,0 +1,83 @@
+<!-- views/scan.ejs -->
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>استعلام عن طالب</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        /* ستايل مخصص لصفحة المسح */
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            min-height: 100vh;
+            background-color: #f0f2f5;
+        }
+        .scanner-container {
+            width: 90%;
+            max-width: 500px;
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+        #qr-reader {
+            border: 2px solid #eee;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-top: 1.5rem;
+        }
+        #qr-reader__status_span {
+            font-size: 1.2rem;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <div class="scanner-container">
+        <h1>مسح كود الطالب</h1>
+        <p>يرجى توجيه الكاميرا إلى QR Code الخاص بالطالب.</p>
+        <div id="qr-reader"></div>
+    </div>
+
+    <!-- 1. استدعاء مكتبة مسح QR Code -->
+    <script src="https://unpkg.com/html5-qrcode/html5-qrcode.min.js"></script>
+    
+    <script>
+        // 2. دالة يتم استدعاؤها عند نجاح المسح
+        function onScanSuccess(decodedText, decodedResult) {
+            // decodedText يحتوي على القيمة الموجودة في QR Code
+            console.log(`تم مسح الكود بنجاح، القيمة: ${decodedText}`);
+            
+            // إيقاف الماسح لتجنب المسح المتكرر
+            html5QrcodeScanner.clear();
+            
+            // 3. إعادة توجيه المتصفح إلى صفحة الطالب
+            window.location.href = `${decodedText}`;
+        }
+
+        // دالة يتم استدعاؤها عند فشل المسح (اختياري)
+        function onScanFailure(error) {
+            // يمكن تجاهلها أو عرض رسالة للمستخدم
+            // console.warn(`فشل مسح الكود = ${error}`);
+        }
+
+        // 4. تهيئة الماسح
+        let html5QrcodeScanner = new Html5QrcodeScanner(
+            "qr-reader", // اسم الـ div الذي ستظهر فيه الكاميرا
+            { 
+                fps: 10, // عدد الإطارات في الثانية
+                qrbox: { width: 250, height: 250 } // حجم مربع المسح
+            },
+            /* verbose= */ false
+        );
+
+        // 5. بدء عملية المسح
+        html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+    </script>
+</body>
+</html>
