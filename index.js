@@ -38,7 +38,7 @@ const db = new sqlite3.Database('./database.db', sqlite3.OPEN_READONLY, (err) =>
         `);
     }
 });
-
+/*
 // Route لعرض صفحة الرفع
 app.get('/upload', (req, res) => {
     res.render('upload');
@@ -136,7 +136,7 @@ app.post('/upload', upload.single('sheet'), (req, res) => {
         res.status(500).render('upload', { error: 'حدث خطأ أثناء معالجة الملف. تأكد من أن صيغة الملف صحيحة.' });
     }
 });
-
+*/
 // Route جديد لعرض صفحة المسح
 app.get('/info', (req, res) => {
     // هذا المسار يعرض الصفحة التي تحتوي على كاميرا المسح
