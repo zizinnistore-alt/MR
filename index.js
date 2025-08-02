@@ -22,7 +22,8 @@ app.use(express.static(path.join(__dirname, 'public'))); // لخدمة المل�
 const upload = multer({ storage: multer.memoryStorage() });
 
 // 4. الاتصال بقاعدة البيانات (أو إنشائها إذا لم تكن موجودة)
-const db = new sqlite3.Database('./database.db', sqlite3.OPEN_READONLY, (err) => {
+const dbPath = path.join(__dirname, 'database.db');
+const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY, (err) => {
     if (err) {
         console.error("❌ Error opening database in READ-ONLY mode: " + err.message);
     } else {
@@ -380,6 +381,7 @@ app.get('/exam/:examName', (req, res) => {
 app.listen(port, () => {
     console.log(`Server is running at http://localhost:${port}`);
 });
+
 
 
 
