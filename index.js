@@ -22,8 +22,7 @@ app.use(express.static(path.join(__dirname, 'public'))); // لخدمة المل�
 const upload = multer({ storage: multer.memoryStorage() });
 
 // 4. الاتصال بقاعدة البيانات (أو إنشائها إذا لم تكن موجودة)
-const dbPath = path.join(__dirname, 'database.db');
-const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY, (err) => {
+const db = new sqlite3.Database('./database.db', (err) => {
     if (err) {
         console.error("Error opening database " + err.message);
     } else {
@@ -248,8 +247,21 @@ const calculateLevelDistribution = (allAverages) => {
 };
 
 
+// 1. مسار جديد لعرض صفحة تسجيل الدخول للداش بورد
 app.get('/dashboard', (req, res) => {
-    // يمكنك إضافة حماية بكلمة سر هنا بنفس طريقة صفحة الرفع
+    res.render('dashboard-login', { error: null });
+});
+
+// 2. تعديل المسار القديم ليصبح POST ويتحقق من كلمة السر
+app.post('/dashboard', (req, res) => {
+    const { password } = req.body;
+
+    // قارن كلمة السر مع المتغير الموجود في ملف .env
+    if (password !== process.env.UPLOAD_PASSWORD) {
+        return res.render('dashboard-login', { error: 'كلمة السر غير صحيحة!' });
+    }
+
+    // إذا كانت كلمة السر صحيحة، نفذ الكود الأصلي لعرض الداش بورد
     db.all("SELECT * FROM students", [], (err, allRows) => {
         if (err) {
             console.error(err);
@@ -266,7 +278,7 @@ app.get('/dashboard', (req, res) => {
             const grades = allStudentsData.map(s => s.exams[examName]).filter(g => g !== null && g > 0);
             examAverages[examName] = calculateAverage(grades);
         });
-        
+
         // 2. نسبة الحضور الإجمالية
         let totalSessionsCount = 0;
         let totalAttendanceCount = 0;
@@ -294,7 +306,7 @@ app.get('/dashboard', (req, res) => {
             examAverages: examAverages,
             overallAttendance: overallAttendance.toFixed(1),
             levelDistribution: levelDistribution,
-            allStudentsRawData: allRows // لإتاحة التصدير
+            // لا نرسل كل البيانات الخام الآن، سنرسلها في صفحة التفاصيل
         });
     });
 });
@@ -338,6 +350,40 @@ app.get('/export/csv', (req, res) => {
         res.send(csv);
     });
 });
+
+app.get('/exam/:examName', (req, res) => {
+    // نستخدم decodeURIComponent لاستعادة اسم الامتحان بشكل صحيح إذا كان يحتوي على مسافات
+    const examName = decodeURIComponent(req.params.examName);
+
+    db.all("SELECT student_name, unique_code, data FROM students", [], (err, rows) => {
+        if (err) {
+            console.error(err);
+            return res.status(500).render('error', { message: 'خطأ في جلب بيانات الطلاب.' });
+        }
+
+        const studentsWithGrade = rows.map(row => {
+            const parsedData = JSON.parse(row.data);
+            // تحقق مما إذا كان الامتحان موجودًا للطالب
+            if (parsedData.exams && typeof parsedData.exams[examName] !== 'undefined' && parsedData.exams[examName] !== null) {
+                return {
+                    name: row.student_name,
+                    unique_code: row.unique_code,
+                    grade: parsedData.exams[examName]
+                };
+            }
+            return null; // تجاهل الطالب إذا لم يأخذ هذا الامتحان
+        }).filter(student => student !== null); // إزالة الطلاب الذين تم تجاهلهم
+
+        // ترتيب الطلاب من الأعلى للأقل في الدرجة
+        studentsWithGrade.sort((a, b) => b.grade - a.grade);
+
+        res.render('exam-details', {
+            examName: examName,
+            students: studentsWithGrade
+        });
+    });
+});
+
 // 5. تشغيل الخادم
 app.listen(port, () => {
     console.log(`Server is running at http://localhost:${port}`);
