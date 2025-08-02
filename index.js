@@ -24,20 +24,12 @@ const upload = multer({ storage: multer.memoryStorage() });
 // 4. الاتصال بقاعدة البيانات (أو إنشائها إذا لم تكن موجودة)
 const db = new sqlite3.Database('./database.db', sqlite3.OPEN_READONLY, (err) => {
     if (err) {
-        console.error("Error opening database " + err.message);
+        console.error("❌ Error opening database in READ-ONLY mode: " + err.message);
     } else {
-        console.log("Database connected!");
-        // إنشاء الجدول عند بدء تشغيل الخادم إذا لم يكن موجودًا
-        db.run(`
-            CREATE TABLE IF NOT EXISTS students (
-                student_id TEXT,
-                student_name TEXT,
-                unique_code TEXT PRIMARY KEY,
-                data TEXT
-            )
-        `);
+        console.log("✅ Database connected in READ-ONLY mode.");
     }
 });
+
 
 // Route لعرض صفحة الرفع
 app.get('/upload', (req, res) => {
@@ -388,5 +380,6 @@ app.get('/exam/:examName', (req, res) => {
 app.listen(port, () => {
     console.log(`Server is running at http://localhost:${port}`);
 });
+
 
 
