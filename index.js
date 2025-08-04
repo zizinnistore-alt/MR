@@ -287,21 +287,59 @@ const calculateLevelDistribution = (allAverages) => {
 app.get('/dashboard', async (req, res) => {
     try {
       const result = await db.query("SELECT * FROM students");
+  
       const students = result.rows.map(student => ({
         ...student,
         data: JSON.parse(student.data),
       }));
   
-      // استخراج كل أسماء الامتحانات من جميع الطلاب
+      // استخراج كل أسماء الامتحانات
       const allExamNames = new Set();
       students.forEach(student => {
         const exams = student.data.exams || {};
         Object.keys(exams).forEach(examName => allExamNames.add(examName));
       });
   
+      // إجمالي الطلاب
+      const totalStudents = students.length;
+  
+      // حساب نسبة الحضور
+      const allAttendances = students.flatMap(s => s.data.attendance || []);
+      const allDates = [...new Set(allAttendances.map(a => a.date))];
+      const totalSessions = allDates.length;
+      const presentCount = allAttendances.filter(a => a.status === 'حضور').length;
+      const overallAttendance = totalStudents > 0 && totalSessions > 0
+        ? ((presentCount / (totalStudents * totalSessions)) * 100).toFixed(1)
+        : 0;
+  
+      // حساب متوسط كل امتحان
+      const examAverages = {};
+      students.forEach(student => {
+        const exams = student.data.exams || {};
+        Object.entries(exams).forEach(([examName, score]) => {
+          if (!examAverages[examName]) examAverages[examName] = [];
+          examAverages[examName].push(score);
+        });
+      });
+      for (const exam in examAverages) {
+        const scores = examAverages[exam];
+        examAverages[exam] = scores.reduce((a, b) => a + b, 0) / scores.length;
+      }
+  
+      // توزيع المستويات (مثال لو عندك مستويات داخل student.data.level)
+      const levelDistribution = {};
+      students.forEach(student => {
+        const level = student.data.level || 'غير محدد';
+        levelDistribution[level] = (levelDistribution[level] || 0) + 1;
+      });
+  
       res.render('dashboard', {
         students,
         examHeaders: Array.from(allExamNames),
+        totalStudents,
+        overallAttendance,
+        examAverages,
+        levelDistribution,
       });
   
     } catch (error) {
