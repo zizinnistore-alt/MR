@@ -5,7 +5,7 @@ require('dotenv').config(); // لتحميل المتغيرات من ملف .env
 const express = require('express');
 const multer = require('multer');
 const xlsx = require('xlsx');
-const sqlite3 = require('sqlite3').verbose();
+// const sqlite3 = require('sqlite3').verbose(); ssssss
 const path = require('path');
 
 // 2. إعداد Express App
@@ -22,13 +22,29 @@ app.use(express.static(path.join(__dirname, 'public'))); // لخدمة المل�
 const upload = multer({ storage: multer.memoryStorage() });
 
 // 4. الاتصال بقاعدة البيانات (أو إنشائها إذا لم تكن موجودة)
-const dbPath = path.join(__dirname, 'database.db');
-const db = new sqlite3.Database(dbPath, sqlite3.OPEN_READONLY, (err) => {
+/*const db = new sqlite3.Database('./database.db', (err) => {
     if (err) {
-        console.error("❌ Error opening database in READ-ONLY mode: " + err.message);
+        console.error("Error opening database " + err.message);
     } else {
-        console.log("✅ Database connected in READ-ONLY mode.");
+        console.log("Database connected!");
+        // إنشاء الجدول عند بدء تشغيل الخادم إذا لم يكن موجودًا
+        db.run(`
+            CREATE TABLE IF NOT EXISTS students (
+                student_id TEXT,
+                student_name TEXT,
+                unique_code TEXT PRIMARY KEY,
+                data TEXT
+            )
+        `);
     }
+});ssssss*/
+
+
+const { Pool } = require('pg');
+
+const db = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false }, // عشان Supabase
 });
 
 
@@ -39,7 +55,7 @@ app.get('/upload', (req, res) => {
 
 // server.js - (استبدل الدالة القديمة بهذه النسخة المصححة)
 
-app.post('/upload', upload.single('sheet'), (req, res) => {
+app.post('/upload', upload.single('sheet'), async (req, res) => {
     const { password } = req.body;
 
     if (password !== process.env.UPLOAD_PASSWORD) {
@@ -49,14 +65,18 @@ app.post('/upload', upload.single('sheet'), (req, res) => {
         return res.status(400).render('upload', { error: 'الرجاء رفع ملف إكسل.' });
     }
 
+    // ⭐ الخطوة 1: الحصول على client من الـ pool لبدء المعاملة
+    const client = await db.connect();
+
     try {
         const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
         const data = xlsx.utils.sheet_to_json(sheet, { header: 1 });
 
-        // التحقق من وجود بيانات ورأس جدول
         if (!data || data.length < 2) {
+            // قبل إرجاع الخطأ، يجب تحرير الـ client
+            client.release();
             return res.render('upload', { error: 'الملف فارغ أو لا يحتوي على صفوف بيانات.' });
         }
 
@@ -64,20 +84,16 @@ app.post('/upload', upload.single('sheet'), (req, res) => {
         const studentRows = data.slice(1);
 
         const studentsToInsert = studentRows.map(row => {
-            // تجاهل الصفوف الفارغة تماماً
-            if (row.length === 0) return null;
-
-            const studentData = { sessions: [], exams: {} };
+            if (!row || row.length === 0) return null;
             const uniqueCodeIndex = headerRow.length - 1;
             const unique_code = row[uniqueCodeIndex];
-
-            if (!unique_code) return null; // تجاهل أي صف بدون كود مميز
-
+            if (unique_code === null || unique_code === undefined || String(unique_code).trim() === '') {
+                return null;
+            }
+            const studentData = { sessions: [], exams: {} };
             headerRow.forEach((header, index) => {
-                // التأكد من أن الـ header ليس فارغاً قبل استخدامه
-                if (header) { 
+                if (header && index < uniqueCodeIndex) {
                     const value = row[index] !== undefined ? row[index] : null;
-
                     if (header.includes("درجة امتحان حصة")) {
                         const match = header.match(/\d+/);
                         if (match) {
@@ -97,36 +113,59 @@ app.post('/upload', upload.single('sheet'), (req, res) => {
                     }
                 }
             });
-
             return {
                 student_id: row[0],
                 student_name: row[1],
-                unique_code: unique_code,
+                unique_code: String(unique_code).trim(),
                 data: JSON.stringify(studentData)
             };
         }).filter(s => s !== null);
 
         if (studentsToInsert.length === 0) {
+            client.release();
             return res.render('upload', { error: 'لم يتم العثور على طلاب لديهم كود مميز في الملف.' });
         }
 
-        db.serialize(() => {
-            db.run("DELETE FROM students", err => { if (err) throw err; });
-            const stmt = db.prepare("INSERT INTO students (student_id, student_name, unique_code, data) VALUES (?, ?, ?, ?)");
-            studentsToInsert.forEach(student => {
-                stmt.run(student.student_id, student.student_name, student.unique_code, student.data);
-            });
-            stmt.finalize(err => {
-                if (err) throw err;
-                console.log(`${studentsToInsert.length} students inserted successfully.`);
-                res.render('upload', { success: `تم رفع ومعالجة بيانات ${studentsToInsert.length} طالب بنجاح!` });
-            });
-        });
+        // ⭐ الخطوة 2: بدء المعاملة
+        await client.query('BEGIN');
+        console.log("Transaction started.");
+
+        // ⭐ الخطوة 3: تنفيذ الأوامر باستخدام client بدلاً من db
+        // 3.1. حذف البيانات القديمة
+        await client.query("DELETE FROM students");
+        console.log("Old data deleted within transaction.");
+
+        // 3.2. إدخال البيانات الجديدة
+        const insertQuery = `INSERT INTO students (student_id, student_name, unique_code, data) VALUES ($1, $2, $3, $4)`;
+        for (const student of studentsToInsert) {
+            await client.query(insertQuery, [
+                student.student_id,
+                student.student_name,
+                student.unique_code,
+                student.data
+            ]);
+        }
+        console.log(`${studentsToInsert.length} students prepared for insertion.`);
+
+        // ⭐ الخطوة 4: تثبيت التغييرات (إنهاء المعاملة بنجاح)
+        await client.query('COMMIT');
+        console.log("Transaction committed successfully.");
+
+        res.render('upload', { success: `تم رفع ومعالجة بيانات ${studentsToInsert.length} طالب بنجاح!` });
 
     } catch (error) {
-        // هذا هو الجزء الأهم الآن! سيطبع الخطأ الفعلي في الـ terminal
-        console.error("!!! Critical Error during file processing:", error);
-        res.status(500).render('upload', { error: 'حدث خطأ أثناء معالجة الملف. تأكد من أن صيغة الملف صحيحة.' });
+        // ⭐ الخطوة 5: في حالة حدوث أي خطأ، تراجع عن كل التغييرات
+        await client.query('ROLLBACK');
+        console.error("!!! Transaction rolled back due to an error:", error);
+
+        res.status(500).render('upload', {
+            error: 'حدث خطأ أثناء معالجة الملف. تم التراجع عن جميع التغييرات.',
+            debug: error.message,
+        });
+    } finally {
+        // ⭐ الخطوة 6: دائمًا، قم بتحرير الـ client لإعادته إلى الـ pool
+        client.release();
+        console.log("Client released.");
     }
 });
 
@@ -144,15 +183,18 @@ const calculateAverage = (arr) => {
     return (sum / validGrades.length);
 };
 
-app.get('/info/:code', (req, res) => {
+app.get('/info/:code', async (req, res) => {
     const uniqueCode = req.params.code;
 
     // 1. جلب بيانات كل الطلاب مرة واحدة لتحليلها
-    db.all("SELECT * FROM students", [], (err, allRows) => {
+    /*db.all("SELECT * FROM students", [], (err, allRows) => {
         if (err) {
             console.error(err);
             return res.status(500).render('error', { message: 'خطأ في جلب بيانات الطلاب.' });
-        }
+        }ssssss*/
+
+        const result = await db.query("SELECT * FROM students");
+        const allRows = result.rows;
 
         // 2. البحث عن الطالب الحالي
         const currentRow = allRows.find(r => r.unique_code === uniqueCode);
@@ -219,7 +261,8 @@ app.get('/info/:code', (req, res) => {
             stats: stats // <-- هنا نرسل الإحصائيات الجديدة
         });
     });
-});
+
+
 // دالة مساعدة لحساب توزيع الطلاب
 const calculateLevelDistribution = (allAverages) => {
     const distribution = { 'ممتاز (90%+)': 0, 'جيد جداً (80-90%)': 0, 'جيد (65-80%)': 0, 'مقبول (50-65%)': 0, 'يحتاج تحسين (<50%)': 0 };
@@ -241,12 +284,35 @@ const calculateLevelDistribution = (allAverages) => {
 
 
 // 1. مسار جديد لعرض صفحة تسجيل الدخول للداش بورد
-app.get('/dashboard', (req, res) => {
-    res.render('dashboard-login', { error: null });
-});
+app.get('/dashboard', async (req, res) => {
+    try {
+      const result = await db.query("SELECT * FROM students");
+      const students = result.rows.map(student => ({
+        ...student,
+        data: JSON.parse(student.data),
+      }));
+  
+      // استخراج كل أسماء الامتحانات من جميع الطلاب
+      const allExamNames = new Set();
+      students.forEach(student => {
+        const exams = student.data.exams || {};
+        Object.keys(exams).forEach(examName => allExamNames.add(examName));
+      });
+  
+      res.render('dashboard', {
+        students,
+        examHeaders: Array.from(allExamNames),
+      });
+  
+    } catch (error) {
+      console.error("Error loading dashboard:", error);
+      res.status(500).send("خطأ في تحميل البيانات");
+    }
+  });
+  
 
 // 2. تعديل المسار القديم ليصبح POST ويتحقق من كلمة السر
-app.post('/dashboard', (req, res) => {
+app.post('/dashboard', async (req, res) => {
     const { password } = req.body;
 
     // قارن كلمة السر مع المتغير الموجود في ملف .env
@@ -255,13 +321,17 @@ app.post('/dashboard', (req, res) => {
     }
 
     // إذا كانت كلمة السر صحيحة، نفذ الكود الأصلي لعرض الداش بورد
-    db.all("SELECT * FROM students", [], (err, allRows) => {
+    /*db.all("SELECT * FROM students", [], (err, allRows) => {
         if (err) {
             console.error(err);
             return res.status(500).render('error', { message: 'خطأ في جلب بيانات الطلاب.' });
-        }
+        }*/
 
-        const allStudentsData = allRows.map(r => JSON.parse(r.data));
+        const result = await db.query("SELECT * FROM students");
+        const rows = result.rows;
+
+        const allStudentsData = rows.map(r => JSON.parse(r.data));
+
         const totalStudents = allStudentsData.length;
 
         // 1. متوسط درجات كل امتحان كبير
@@ -302,16 +372,20 @@ app.post('/dashboard', (req, res) => {
             // لا نرسل كل البيانات الخام الآن، سنرسلها في صفحة التفاصيل
         });
     });
-});
+
 const { Parser } = require('json2csv');
 
 
 
-app.get('/export/csv', (req, res) => {
-    db.all("SELECT student_id, student_name, data FROM students", [], (err, rows) => {
-        if (err) {
-            return res.status(500).send("Could not export data.");
-        }
+app.get('/export/csv', async (req, res) => {
+    // 
+    // db.all("SELECT student_id, student_name, data FROM students", [], (err, rows) => {
+        const result = await db.query("SELECT student_id, student_name, data FROM students");
+        const rows = result.rows;
+
+       /* if (err) {
+            //return res.status(500).send("Could not export data.");
+        }*/
 
         const flatData = [];
         rows.forEach(row => {
@@ -342,17 +416,18 @@ app.get('/export/csv', (req, res) => {
         res.attachment('student_grades_export.csv');
         res.send(csv);
     });
-});
 
-app.get('/exam/:examName', (req, res) => {
+app.get('/exam/:examName', async (req, res) => {
     // نستخدم decodeURIComponent لاستعادة اسم الامتحان بشكل صحيح إذا كان يحتوي على مسافات
     const examName = decodeURIComponent(req.params.examName);
 
-    db.all("SELECT student_name, unique_code, data FROM students", [], (err, rows) => {
+    /*db.all("SELECT student_name, unique_code, data FROM students", [], (err, rows) => {
         if (err) {
             console.error(err);
             return res.status(500).render('error', { message: 'خطأ في جلب بيانات الطلاب.' });
-        }
+        }*/
+        const result = await db.query("SELECT student_name, unique_code, data FROM students");
+        const rows = result.rows;
 
         const studentsWithGrade = rows.map(row => {
             const parsedData = JSON.parse(row.data);
@@ -375,13 +450,10 @@ app.get('/exam/:examName', (req, res) => {
             students: studentsWithGrade
         });
     });
-});
+
 
 // 5. تشغيل الخادم
 app.listen(port, () => {
     console.log(`Server is running at http://localhost:${port}`);
 });
-
-
-
 
