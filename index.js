@@ -708,6 +708,100 @@ app.get('/sw.js', (req, res) => {
     res.type('application/javascript');
     res.send(serviceWorkerScript);
 });
+
+
+
+
+// 1. عرض صفحة الماسح الضوئي للحصة المحددة
+app.get('/manage/session/scan/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        // نتأكد أن هذه الحصة هي المفعلة حالياً
+        const result = await db.query(
+            "SELECT id, name, qr_enabled FROM sessions WHERE id = $1 AND qr_enabled = true", 
+            [id]
+        );
+
+        if (result.rows.length === 0) {
+            // إذا لم تكن الحصة مفعلة، نعيد المستخدم لصفحة الإدارة مع رسالة خطأ
+            // يمكنك تخصيص صفحة خطأ أفضل لهذا
+            return res.status(403).send('<h1>لا يمكن بدء المسح. يرجى تفعيل الحضور لهذه الحصة أولاً من لوحة التحكم.</h1><a href="/manage">العودة للوحة التحكم</a>');
+        }
+        
+        const session = result.rows[0];
+        res.render('scanner', { session }); // سنقوم بإنشاء ملف scanner.ejs
+
+    } catch (error) {
+        console.error("Error loading scanner page:", error);
+        res.status(500).render('error', { message: 'خطأ في تحميل صفحة الماسح الضوئي.' });
+    }
+});
+
+// 2. معالجة الباركود المسجل وتحديث الحضور
+app.post('/scan/mark-attendance', async (req, res) => {
+    const { unique_code } = req.body;
+    
+    if (!unique_code) {
+        return res.status(400).json({ success: false, message: 'كود الطالب مطلوب.' });
+    }
+
+    const client = await db.connect();
+    try {
+        // أولاً، نجد الحصة المفعلة حالياً لتسجيل الحضور
+        const activeSessionResult = await client.query("SELECT session_uuid FROM sessions WHERE qr_enabled = true LIMIT 1");
+        
+        if (activeSessionResult.rows.length === 0) {
+            return res.status(400).json({ success: false, message: 'لا توجد حصة مفعلة لتسجيل الحضور.' });
+        }
+        
+        const activeSessionUUID = activeSessionResult.rows[0].session_uuid;
+
+        // ثانياً، نجد الطالب ونحدث بياناته
+        await client.query('BEGIN');
+
+        const studentResult = await client.query("SELECT student_name, data FROM students WHERE unique_code = $1", [unique_code]);
+        if (studentResult.rows.length === 0) {
+            // لا نستخدم throw new Error هنا لنتمكن من إرسال رسالة مخصصة
+            await client.query('ROLLBACK');
+            return res.status(404).json({ success: false, message: `الطالب صاحب الكود ${unique_code} غير موجود.` });
+        }
+
+        let studentData = studentResult.rows[0].data;
+        const studentName = studentResult.rows[0].student_name;
+        let sessions = studentData.sessions || [];
+        
+        const sessionIndex = sessions.findIndex(s => s.uuid === activeSessionUUID);
+
+        if (sessionIndex === -1) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ success: false, message: `الطالب ${studentName} لا يملك هذه الحصة في بياناته.` });
+        }
+        
+        // التحقق مما إذا كان الطالب قد سجل حضوره بالفعل
+        if (studentData.sessions[sessionIndex].attendance === "حاضر") {
+             await client.query('ROLLBACK'); // لا داعي للتحديث
+             return res.json({ success: true, studentName: studentName, message: 'مسجل بالفعل' });
+        }
+
+        // تحديث الحضور
+        studentData.sessions[sessionIndex].attendance = "حاضر";
+        
+        await client.query("UPDATE students SET data = $1 WHERE unique_code = $2", [JSON.stringify(studentData), unique_code]);
+        
+        await client.query('COMMIT');
+        
+        res.json({ success: true, studentName: studentName, message: 'تم التسجيل' });
+
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error("Error marking attendance:", error);
+        res.status(500).json({ success: false, message: 'حدث خطأ في الخادم.' });
+    } finally {
+        client.release();
+    }
+});
+
+
 // 5. تشغيل الخادم
 app.listen(port, () => {
     console.log(`Server is running at http://localhost:${port}`);

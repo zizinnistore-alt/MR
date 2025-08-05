@@ -1,0 +1,144 @@
+<!-- views/scanner.ejs -->
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تسجيل الحضور لـ <%= session.name %></title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Cairo', sans-serif; }
+        #reader {
+            width: 100%;
+            max-width: 500px;
+            border: 5px solid #4f46e5; /* indigo-600 */
+            border-radius: 8px;
+            overflow: hidden;
+            margin: auto;
+        }
+        .feedback {
+            transition: opacity 0.5s;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-2xl text-center">
+        <h1 class="text-3xl font-bold text-gray-800 mb-2">تسجيل الحضور لـ <span class="text-indigo-600"><%= session.name %></span></h1>
+        <p class="text-gray-600 mb-6">قم بتوجيه كاميرا الطالب نحو الكاميرا لتسجيل الحضور.</p>
+
+        <div id="reader"></div>
+
+        <div id="scan-feedback" class="mt-6 text-2xl font-semibold h-12">
+            <!-- رسائل الحالة ستظهر هنا -->
+        </div>
+
+        <a href="/manage" class="mt-8 inline-block bg-gray-500 text-white px-8 py-3 rounded-lg hover:bg-gray-600 font-semibold text-lg">
+            العودة إلى لوحة التحكم
+        </a>
+    </div>
+
+    <!-- مكتبة المسح الضوئي -->
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+    <script>
+        const feedbackEl = document.getElementById('scan-feedback');
+        let isScanningPaused = false;
+    
+        function onScanSuccess(decodedText, decodedResult) {
+            // أوقف المسح مؤقتًا لمنع قراءات متعددة لنفس الكود
+            if (isScanningPaused) {
+                return;
+            }
+            isScanningPaused = true;
+            html5QrcodeScanner.pause(true);
+    
+            feedbackEl.textContent = 'جاري التحقق...';
+            feedbackEl.className = 'mt-6 text-2xl font-semibold h-12 text-blue-600';
+    
+            // تشغيل صوت بسيط عند المسح
+            new Audio('/sounds/scan-beep.mp3').play().catch(e => console.log("لا يمكن تشغيل الصوت"));
+            
+            // --- التغيير يبدأ هنا ---
+            console.log(`البيانات الخام الممسوحة: ${decodedText}`);
+    
+            // الكود الممسوح هو رابط كامل، مثل: "mr-lovat.vercel.app/info/CODE"
+            // نحن نحتاج فقط للجزء الأخير (CODE).
+            // نستخدم .split('/') لتقسيم النص إلى مصفوفة، و .pop() لأخذ آخر عنصر.
+            const urlParts = decodedText.split('/');
+            const uniqueCode = urlParts.pop() || ''; // نستخدم || '' لتجنب الأخطاء إذا كان الرابط فارغاً
+            
+            console.log(`الكود المستخلص: ${uniqueCode}`);
+            
+            // التحقق من أننا استخلصنا كودًا صالحًا
+            if (!uniqueCode) {
+                feedbackEl.textContent = 'خطأ: الكود الممسوح غير صالح.';
+                feedbackEl.className = 'mt-6 text-2xl font-semibold h-12 text-red-600';
+                setTimeout(() => {
+                    feedbackEl.textContent = '';
+                    isScanningPaused = false;
+                    html5QrcodeScanner.resume();
+                }, 2500);
+                return; // نوقف التنفيذ هنا لأن الكود غير صالح
+            }
+    
+            // إرسال الكود المستخلص فقط إلى الخادم
+            fetch('/scan/mark-attendance', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                // الكود القديم كان يرسل: { unique_code: decodedText }
+                // الكود الجديد يرسل الكود المستخلص فقط
+                body: JSON.stringify({ unique_code: uniqueCode })
+            })
+            // --- نهاية التغيير ---
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    if(data.message === 'مسجل بالفعل') {
+                        feedbackEl.textContent = `تم تسجيل ${data.studentName} مسبقاً`;
+                        feedbackEl.className = 'mt-6 text-2xl font-semibold h-12 text-yellow-600';
+                    } else {
+                        feedbackEl.textContent = `تم تسجيل حضور: ${data.studentName}`;
+                        feedbackEl.className = 'mt-6 text-2xl font-semibold h-12 text-green-600';
+                    }
+                } else {
+                    feedbackEl.textContent = `خطأ: ${data.message}`;
+                    feedbackEl.className = 'mt-6 text-2xl font-semibold h-12 text-red-600';
+                }
+            })
+            .catch(err => {
+                feedbackEl.textContent = 'خطأ في الاتصال بالخادم!';
+                feedbackEl.className = 'mt-6 text-2xl font-semibold h-12 text-red-600';
+            })
+            .finally(() => {
+                // استئناف المسح بعد ثانيتين
+                setTimeout(() => {
+                    feedbackEl.textContent = '';
+                    isScanningPaused = false;
+                    // التأكد من أن الماسح لم يتم إيقافه بشكل دائم
+                    if (html5QrcodeScanner.getState() === Html5QrcodeScannerState.PAUSED) {
+                        html5QrcodeScanner.resume();
+                    }
+                }, 2500);
+            });
+        }
+    
+        function onScanFailure(error) {
+            // يمكن تجاهل هذا الخطأ لأنه يظهر باستمرار عندما لا يجد كود
+        }
+    
+        // إعداد الماسح الضوئي
+        const html5QrcodeScanner = new Html5QrcodeScanner(
+            "reader",
+            { fps: 10, qrbox: { width: 250, height: 250 } },
+            /* verbose= */ false
+        );
+        html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+    
+    </script>
+</body>
+</html>
