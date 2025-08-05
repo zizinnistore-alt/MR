@@ -6,6 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>تقرير أداء الطالب: <%= student.student_name %></title>
 
+    <!-- PWA: الرابط لملف الـ Manifest -->
+    <link rel="manifest" href="/manifest.webmanifest">
+
+    <!-- PWA: لون شريط العنوان على أجهزة الموبايل -->
+    <meta name="theme-color" content="#4f46e5">
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -27,7 +32,6 @@
     <style>
         body { font-family: 'Cairo', sans-serif; }
         .chart-container { position: relative; height: 40vh; width: 100%; }
-        /* لتجنب تعارض الـ direction مع Tailwind */
         :root { direction: rtl; }
     </style>
     <!-- NEW: Add html5-qrcode library -->
@@ -37,7 +41,6 @@
         body { font-family: 'Cairo', sans-serif; }
         .chart-container { position: relative; height: 40vh; width: 100%; }
         :root { direction: rtl; }
-        /* NEW: Styles for QR Scanner */
         #qr-reader {
             width: 100%;
             max-width: 500px;
@@ -61,8 +64,6 @@
         </button>
     </div>
 
-
-<!-- ... existing Detailed Grades Tables ... -->
 </div>
     <div class="container mx-auto p-4 md:p-8">
         
@@ -124,8 +125,6 @@
             </div>
         </div>
 
-        
-
         <!-- Detailed Grades Tables -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <!-- Major Exams -->
@@ -184,66 +183,40 @@
         </div>
     </div>
 
-<!-- في نهاية ملف views/student-info.ejs -->
 <script>
+    // ... الكود الخاص بـ QR Scanner لا يتغير ...
     const startScanBtn = document.getElementById('start-scan-btn');
     const qrReaderDiv = document.getElementById('qr-reader');
     const resultsDiv = document.getElementById('qr-reader-results');
     const studentUniqueCode = "<%= student.unique_code %>";
 
-    // التحقق من تحميل المكتبة
-    if (typeof Html5Qrcode === 'undefined') {
-        resultsDiv.innerHTML = '<span class="text-red-600">خطأ فادح: مكتبة الكاميرا لم تحمل.</span>';
-    } else {
+    if (typeof Html5Qrcode !== 'undefined') {
         const html5QrCode = new Html5Qrcode("qr-reader");
-
-        // --- هذه هي الدالة التي سنختبرها ---
         const qrCodeSuccessCallback = (decodedText, decodedResult) => {
-            // الخطوة الأولى: أوقف الكاميرا فوراً لمنع المسح المتكرر
             html5QrCode.stop().catch(err => console.error("فشل إيقاف الكاميرا:", err));
-            
-            // الخطوة الثانية: اعرض رسالة بسيطة جداً باستخدام alert
-            // إذا ظهر هذا التنبيه، فهذا يعني أن الدالة تعمل!
-            alert(`تم مسح الكود بنجاح! القيمة هي: ${decodedText}`);
-
-            // الخطوة الثالثة: اعرض رسالة للمستخدم
-            resultsDiv.innerHTML = `<span class="text-blue-600 font-bold">تم المسح! القيمة: ${decodedText}. جاري الإرسال للخادم...</span>`;
-            
-            // الخطوة الرابعة: أرسل البيانات للخادم
+            resultsDiv.innerHTML = `<span class="text-blue-600 font-bold">تم المسح! جاري الإرسال للخادم...</span>`;
             fetch('/scan/verify', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ token: decodedText, unique_code: studentUniqueCode })
             })
-            .then(response => {
-                if (!response.ok) {
-                    // إذا كانت الاستجابة خطأ (مثل 400 أو 500)
-                    return response.json().then(errData => Promise.reject(errData));
-                }
-                return response.json(); // إذا كانت ناجحة
-            })
+            .then(response => response.json())
             .then(data => {
                 if (data.success) {
                     resultsDiv.innerHTML = `<span class="text-green-600 font-bold">${data.message}</span>`;
-                    // لا تقم بإعادة تحميل الصفحة الآن، لنرى الرسالة
                 } else {
                     resultsDiv.innerHTML = `<span class="text-red-600 font-bold">${data.message}</span>`;
                 }
             })
             .catch(error => {
-                console.error('Error during fetch:', error);
-                resultsDiv.innerHTML = `<span class="text-red-600 font-bold">خطأ في الاتصال بالخادم: ${error.message || 'فشل التحقق'}</span>`;
+                resultsDiv.innerHTML = `<span class="text-red-600 font-bold">خطأ في الاتصال بالخادم.</span>`;
             });
         };
-
-        // --- باقي الكود ---
         const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-
         startScanBtn.addEventListener('click', () => {
             qrReaderDiv.style.display = 'block';
             startScanBtn.style.display = 'none';
             resultsDiv.innerHTML = '';
-            
             html5QrCode.start({ facingMode: "environment" }, config, qrCodeSuccessCallback)
             .catch(err => {
                 resultsDiv.innerHTML = `<span class="text-red-600 font-bold">لا يمكن تشغيل الكاميرا. يرجى السماح بالوصول.</span>`;
@@ -251,6 +224,21 @@
         });
     }
 </script>
-Use code with 
+
+<!-- PWA: سكريبت تسجيل الـ Service Worker -->
+<script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/service-worker.js')
+          .then(registration => {
+            console.log('Service Worker تم تسجيله بنجاح:', registration);
+          })
+          .catch(error => {
+            console.log('فشل تسجيل Service Worker:', error);
+          });
+      });
+    }
+</script>
+
 </body>
 </html>

@@ -1,0 +1,21 @@
+{
+    "name": "تقرير الطالب الدراسي",
+    "short_name": "تقريري",
+    "description": "تطبيق لمتابعة الأداء الدراسي والدرجات للطلاب.",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#4f46e5",
+    "icons": [
+      {
+        "src": "/icons/icon-192x192.png",
+        "type": "image/png",
+        "sizes": "192x192"
+      },
+      {
+        "src": "/icons/icon-512x512.png",
+        "type": "image/png",
+        "sizes": "512x512"
+      }
+    ]
+  }
