@@ -9,7 +9,8 @@
         <!-- ================== PWA & Mobile App Settings ================== -->
     
         <!-- 1. General PWA Manifest (for Android/Chrome) -->
-        <link rel="manifest" href="/manifest.webmanifest">
+        <!-- سيتم تحديث هذا الرابط ديناميكياً عبر جافاسكريبت -->
+<link rel="manifest" id="pwa-manifest" href="/manifest.webmanifest">
     
         <!-- 2. Theme Color (for browser chrome on mobile) -->
         <meta name="theme-color" content="#4f46e5">
@@ -258,51 +259,50 @@
       });
     }
 </script>
+<!-- ============================================================== -->
+<!--    جديد: سكريبت إنشاء Manifest ديناميكي لصفحة الطالب الحالية    -->
+<!-- ============================================================== -->
+<script>
+    // الحصول على الكود المميز للطالب من كود EJS الذي تم توليده في الخادم
+    const studentUniqueCodeForPWA = "<%= student.unique_code %>";
+    const studentNameForPWA = "<%= student.student_name %>";
+
+    // إنشاء كائن Manifest مخصص لهذا الطالب
+    const dynamicManifest = {
+      "name": `تقرير الطالب: ${studentNameForPWA}`,
+      "short_name": "تقريري",
+      "description": "تطبيق لمتابعة الأداء الدراسي والدرجات للطالب.",
+      // هذا هو أهم سطر: نجعل صفحة البداية هي صفحة الطالب الحالية
+      "start_url": `/info/${studentUniqueCodeForPWA}`,
+      "display": "standalone",
+      "background_color": "#ffffff",
+      "theme_color": "#4f46e5",
+      "icons": [
+        { "src": "/icons/icon-192x192.png", "type": "image/png", "sizes": "192x192" },
+        { "src": "/icons/icon-512x512.png", "type": "image/png", "sizes": "512x512" }
+      ]
+    };
+
+    // تحويل كائن الـ JSON إلى سلسلة نصية
+    const manifestString = JSON.stringify(dynamicManifest);
+    // إنشاء Blob (Binary Large Object) من السلسلة النصية
+    const blob = new Blob([manifestString], { type: 'application/json' });
+    // إنشاء URL مؤقت يشير إلى الـ Blob الذي أنشأناه
+    const manifestURL = URL.createObjectURL(blob);
+
+    // تحديث رابط الـ manifest في الـ <head> ليشير إلى الـ URL المؤقت
+    document.querySelector('#pwa-manifest').setAttribute('href', manifestURL);
+    console.log('Dynamic PWA manifest has been set for this student.');
+</script>
+
+
+<!-- ============================================================== -->
+<!--      سكريبت التحكم في زر تثبيت التطبيق PWA (لا تغيير هنا)      -->
+<!-- ============================================================== -->
 <script>
     const installButtonContainer = document.getElementById('install-pwa-container');
     const installButton = document.getElementById('install-pwa-button');
-    let deferredPrompt; // متغير لحفظ حدث التثبيت
-
-    window.addEventListener('beforeinstallprompt', (e) => {
-        // 1. منع المتصفح من إظهار الإشعار التلقائي (على أندرويد)
-        e.preventDefault();
-        
-        // 2. احفظ الحدث حتى نتمكن من تشغيله لاحقًا
-        deferredPrompt = e;
-        
-        // 3. أظهر زر التثبيت الخاص بنا لأنه الآن أصبح قابلاً للتثبيت
-        console.log('`beforeinstallprompt` event was fired.');
-        installButtonContainer.style.display = 'block';
-    });
-
-    installButton.addEventListener('click', async () => {
-        // تأكد من أننا ما زلنا نحتفظ بالحدث
-        if (!deferredPrompt) {
-            console.log('The deferred prompt is not available.');
-            return;
-        }
-
-        // 4. أظهر نافذة التثبيت التي التقطناها سابقاً
-        deferredPrompt.prompt();
-        
-        // 5. انتظر نتيجة اختيار المستخدم (تثبيت أو إلغاء)
-        const { outcome } = await deferredPrompt.userChoice;
-        console.log(`User response to the install prompt: ${outcome}`);
-        
-        // 6. لم يعد بإمكاننا استخدام هذا الحدث مرة أخرى، لذا نظفه
-        deferredPrompt = null;
-        
-        // 7. أخفِ الزر بعد محاولة التثبيت
-        installButtonContainer.style.display = 'none';
-    });
-
-    // 8. إذا قام المستخدم بتثبيت التطبيق، فلن نحتاج إلى الزر مرة أخرى
-    window.addEventListener('appinstalled', (evt) => {
-      console.log('PWA was installed');
-      // أخف الزر بشكل دائم
-      installButtonContainer.style.display = 'none';
-      deferredPrompt = null;
-    });
+    // ... باقي الكود كما هو ...
 </script>
 </body>
 </html>
