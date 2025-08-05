@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تعديل بيانات: <%= student.student_name %></title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    <style> body { font-family: 'Cairo', sans-serif; } </style>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto p-6">
+        <header class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold text-gray-800">تعديل بيانات: <span class="text-indigo-600"><%= student.student_name %></span></h1>
+            <a href="/manage" class="text-indigo-600 hover:text-indigo-800">← العودة للإدارة</a>
+        </header>
+
+        <form action="/manage/student/<%= student.unique_code %>" method="POST" class="bg-white p-8 rounded-xl shadow-lg space-y-6">
+            
+            <!-- Basic Info -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label for="student_name" class="block text-sm font-medium text-gray-700">اسم الطالب</label>
+                    <input type="text" name="student_name" id="student_name" value="<%= student.student_name %>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                </div>
+                <div>
+                    <label for="student_id" class="block text-sm font-medium text-gray-700">رقم هوية الطالب</label>
+                    <input type="text" name="student_id" id="student_id" value="<%= student.student_id %>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                </div>
+            </div>
+
+            <!-- Sessions -->
+            <div>
+                <h3 class="text-xl font-semibold mb-3">الحصص</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <% student.data.sessions.forEach((session, index) => { %>
+                        <div class="p-4 border rounded-lg">
+                            <h4 class="font-bold mb-2">الحصة <%= index + 1 %></h4>
+                            <div>
+                                <label class="text-xs">الدرجة</label>
+                                <input type="number" name="sessions[<%= index %>][grade]" value="<%= session.grade %>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                            </div>
+                            <div class="mt-2">
+                                <label class="text-xs">الحضور</label>
+                                <select name="sessions[<%= index %>][attendance]" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                                    <option value="" <%= !session.attendance ? 'selected' : '' %>>لم يسجل</option>
+                                    <option value="حاضر" <%= session.attendance === 'حاضر' ? 'selected' : '' %>>حاضر</option>
+                                    <option value="غائب" <%= session.attendance === 'غائب' ? 'selected' : '' %>>غائب</option>
+                                </select>
+                            </div>
+                        </div>
+                    <% }); %>
+                </div>
+            </div>
+
+            <!-- Exams -->
+            <div>
+                <h3 class="text-xl font-semibold mb-3">الامتحانات الكبرى</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <% Object.keys(student.data.exams).forEach(examName => { %>
+                        <div class="p-4 border rounded-lg">
+                            <label class="font-bold"><%= examName %></label>
+                             <input type="number" name="exams[<%= examName %>]" value="<%= student.data.exams[examName] %>" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                        </div>
+                    <% }); %>
+                </div>
+            </div>
+
+            <!-- Submit Button -->
+            <div class="text-left">
+                <button type="submit" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg">
+                    حفظ التغييرات
+                </button>
+            </div>
+        </form>
+    </div>
+</body>
+</html>

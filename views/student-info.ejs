@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>تقرير أداء الطالب: <%= student.student_name %></title>
+
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -29,9 +30,30 @@
         /* لتجنب تعارض الـ direction مع Tailwind */
         :root { direction: rtl; }
     </style>
+    <!-- NEW: Add html5-qrcode library -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    
+    <style>
+        body { font-family: 'Cairo', sans-serif; }
+        .chart-container { position: relative; height: 40vh; width: 100%; }
+        :root { direction: rtl; }
+        /* NEW: Styles for QR Scanner */
+        #qr-reader {
+            width: 100%;
+            max-width: 500px;
+            margin: 1rem auto;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+        }
+        #qr-reader-results {
+            margin-top: 1rem;
+            font-weight: bold;
+            text-align: center;
+        }
+    </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
-
+<div class="container mx-auto p-4 md:p-8">
     <!-- Animated Help Button -->
     <div id="help-button-container" class="fixed bottom-6 left-6 z-50">
         <button class="bg-indigo-600 text-white rounded-full w-16 h-16 flex items-center justify-center shadow-lg transform transition-transform hover:scale-110 animate-pulse">
@@ -39,6 +61,9 @@
         </button>
     </div>
 
+
+<!-- ... existing Detailed Grades Tables ... -->
+</div>
     <div class="container mx-auto p-4 md:p-8">
         
         <!-- Student Header -->
@@ -46,7 +71,14 @@
             <h1 class="text-3xl md:text-4xl font-extrabold text-indigo-700">مرحباً، <%= student.student_name %></h1>
             <p class="text-gray-500 mt-2">هذا هو تقرير أدائك الدراسي المفصل</p>
         </div>
-
+<!-- NEW: QR Code Scanner Section -->
+<div id="qr-section" class="my-8 text-center">
+    <button id="start-scan-btn" class="bg-teal-500 hover:bg-teal-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-transform hover:scale-105">
+        <i class="fas fa-qrcode mr-2"></i> تسجيل الحضور بالـ QR
+    </button>
+    <div id="qr-reader" style="display: none;"></div>
+    <div id="qr-reader-results"></div>
+</div>
         <!-- Motivational Message -->
         <% 
             let message = '';
@@ -82,8 +114,9 @@
             <div class="bg-white p-6 rounded-xl shadow-md text-center">
                 <h3 class="text-lg font-bold text-gray-500">نسبة الحضور</h3>
                 <% 
-                    const totalSessions = data.sessions.length;
-                    const attendedSessions = data.sessions.filter(s => s.attendance === 'حاضر').length;
+                    const sessionsForAttendance = (data && data.sessions) ? data.sessions : [];
+                    const totalSessions = sessionsForAttendance.length;
+                    const attendedSessions = sessionsForAttendance.filter(s => s && s.attendance === 'حاضر').length;
                     const attendancePercentage = totalSessions > 0 ? (attendedSessions / totalSessions) * 100 : 0;
                 %>
                 <p class="text-4xl font-extrabold text-indigo-600 mt-2"><%= attendancePercentage.toFixed(0) %>%</p>
@@ -125,81 +158,99 @@
                             </tr>
                         </thead>
                         <tbody>
-                        <% data.sessions.forEach((session, index) => { %>
-                            <tr class="border-b">
-                                <td class="p-3">حصة <%= index + 1 %></td>
-                                <td class="p-3 font-bold <%= session.grade > 5 ? 'text-green-600' : 'text-red-600' %>"><%= session.grade ?? '-' %></td>
-                                <td class="p-3">
-                                    <span class="px-2 py-1 text-xs rounded-full <%= session.attendance === 'حاضر' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' %>">
-                                        <%= session.attendance ?? 'لم يسجل' %>
-                                    </span>
-                                </td>
-                            </tr>
-                        <% }); %>
-                        </tbody>
+                            <% if (data && data.sessions && data.sessions.length > 0) { %>
+                                <% data.sessions.forEach((session, index) => { %>
+                                    <% if (session) { %>
+                                        <tr class="border-b">
+                                            <td class="p-3">حصة <%= index + 1 %></td>
+                                            <td class="p-3 font-bold <%= session.grade > 5 ? 'text-green-600' : 'text-red-600' %>"><%= session.grade ?? '-' %></td>
+                                            <td class="p-3">
+                                                <span class="px-2 py-1 text-xs rounded-full <%= session.attendance === 'حاضر' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' %>">
+                                                    <%= session.attendance ?? 'لم يسجل' %>
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    <% } %>
+                                <% }); %>
+                            <% } else { %>
+                                <tr>
+                                    <td colspan="3" class="p-4 text-center text-gray-500">لا توجد بيانات حصص لعرضها.</td>
+                                </tr>
+                            <% } %>
+                            </tbody>
                     </table>
                 </div>
             </div>
         </div>
     </div>
 
-    <script>
-        // Framer Motion Animations
-        const { motion } = window.framer;
-        const animateIn = {
-            initial: { opacity: 0, y: 20 },
-            animate: { opacity: 1, y: 0 },
-            transition: { duration: 0.5 }
-        };
-        ['student-header', 'motivational-message', 'stats-grid'].forEach((id, i) => {
-            const el = document.getElementById(id);
-            if (el) {
-                motion(el, { ...animateIn, transition: { ...animateIn.transition, delay: i * 0.1 } });
-            }
-        });
+<!-- في نهاية ملف views/student-info.ejs -->
+<script>
+    const startScanBtn = document.getElementById('start-scan-btn');
+    const qrReaderDiv = document.getElementById('qr-reader');
+    const resultsDiv = document.getElementById('qr-reader-results');
+    const studentUniqueCode = "<%= student.unique_code %>";
 
-        // Chart.js Configuration
-        const ctx = document.getElementById('gradesChart').getContext('2d');
-        const sessionData = <%- JSON.stringify(data.sessions || []) %>;
-        const examData = <%- JSON.stringify(stats.exams || {}) %>;
+    // التحقق من تحميل المكتبة
+    if (typeof Html5Qrcode === 'undefined') {
+        resultsDiv.innerHTML = '<span class="text-red-600">خطأ فادح: مكتبة الكاميرا لم تحمل.</span>';
+    } else {
+        const html5QrCode = new Html5Qrcode("qr-reader");
 
-        const sessionLabels = sessionData.map((s, i) => `حصة ${i + 1}`);
-        const sessionGrades = sessionData.map(s => s.grade);
-        
-        const examLabels = Object.keys(examData);
-        const examGrades = Object.values(examData).map(e => e.grade);
+        // --- هذه هي الدالة التي سنختبرها ---
+        const qrCodeSuccessCallback = (decodedText, decodedResult) => {
+            // الخطوة الأولى: أوقف الكاميرا فوراً لمنع المسح المتكرر
+            html5QrCode.stop().catch(err => console.error("فشل إيقاف الكاميرا:", err));
+            
+            // الخطوة الثانية: اعرض رسالة بسيطة جداً باستخدام alert
+            // إذا ظهر هذا التنبيه، فهذا يعني أن الدالة تعمل!
+            alert(`تم مسح الكود بنجاح! القيمة هي: ${decodedText}`);
 
-        new Chart(ctx, {
-            type: 'bar', // Bar chart is better for comparison
-            data: {
-                labels: [...sessionLabels, ...examLabels],
-                datasets: [
-                {
-                    label: 'درجات الحصص',
-                    data: [...sessionGrades, ...Array(examLabels.length).fill(NaN)], // Use NaN to skip categories
-                    backgroundColor: 'rgba(54, 162, 235, 0.6)',
-                    borderColor: 'rgba(54, 162, 235, 1)',
-                    borderWidth: 1,
-                    type: 'line', // Mix chart types
-                    fill: false,
-                    tension: 0.3
-                },
-                {
-                    label: 'درجات الامتحانات الكبرى',
-                    data: [...Array(sessionLabels.length).fill(NaN), ...examGrades],
-                    backgroundColor: 'rgba(75, 192, 192, 0.8)',
-                    borderColor: 'rgba(75, 192, 192, 1)',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: { beginAtZero: true }
+            // الخطوة الثالثة: اعرض رسالة للمستخدم
+            resultsDiv.innerHTML = `<span class="text-blue-600 font-bold">تم المسح! القيمة: ${decodedText}. جاري الإرسال للخادم...</span>`;
+            
+            // الخطوة الرابعة: أرسل البيانات للخادم
+            fetch('/scan/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: decodedText, unique_code: studentUniqueCode })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    // إذا كانت الاستجابة خطأ (مثل 400 أو 500)
+                    return response.json().then(errData => Promise.reject(errData));
                 }
-            }
+                return response.json(); // إذا كانت ناجحة
+            })
+            .then(data => {
+                if (data.success) {
+                    resultsDiv.innerHTML = `<span class="text-green-600 font-bold">${data.message}</span>`;
+                    // لا تقم بإعادة تحميل الصفحة الآن، لنرى الرسالة
+                } else {
+                    resultsDiv.innerHTML = `<span class="text-red-600 font-bold">${data.message}</span>`;
+                }
+            })
+            .catch(error => {
+                console.error('Error during fetch:', error);
+                resultsDiv.innerHTML = `<span class="text-red-600 font-bold">خطأ في الاتصال بالخادم: ${error.message || 'فشل التحقق'}</span>`;
+            });
+        };
+
+        // --- باقي الكود ---
+        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+        startScanBtn.addEventListener('click', () => {
+            qrReaderDiv.style.display = 'block';
+            startScanBtn.style.display = 'none';
+            resultsDiv.innerHTML = '';
+            
+            html5QrCode.start({ facingMode: "environment" }, config, qrCodeSuccessCallback)
+            .catch(err => {
+                resultsDiv.innerHTML = `<span class="text-red-600 font-bold">لا يمكن تشغيل الكاميرا. يرجى السماح بالوصول.</span>`;
+            });
         });
-    </script>
+    }
+</script>
+Use code with 
 </body>
 </html>
