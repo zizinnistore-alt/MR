@@ -1,68 +1,76 @@
 <!-- views/student-info.ejs -->
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>تقرير أداء الطالب: <%= student.student_name %></title>
-
-    <!-- PWA: الرابط لملف الـ Manifest -->
-    <link rel="manifest" href="/manifest.webmanifest">
-
-    <!-- PWA: لون شريط العنوان على أجهزة الموبايل -->
-    <meta name="theme-color" content="#4f46e5">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>تقرير أداء الطالب: <%= student.student_name %></title>
     
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
+        <!-- ================== PWA & Mobile App Settings ================== -->
     
-    <!-- Framer Motion for Animations -->
-    <script src="https://cdn.jsdelivr.net/npm/framer-motion@10/dist/framer-motion.umd.js"></script>
+        <!-- 1. General PWA Manifest (for Android/Chrome) -->
+        <link rel="manifest" href="/manifest.webmanifest">
     
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <!-- 2. Theme Color (for browser chrome on mobile) -->
+        <meta name="theme-color" content="#4f46e5">
     
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+        <!-- 3. Apple-specific tags (for iOS/Safari "Add to Home Screen") -->
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <meta name="apple-mobile-web-app-title" content="تقريري">
+        
+        <!-- 4. Apple Touch Icon (the icon that appears on the home screen) -->
+        <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
     
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+        <!-- =============================================================== -->
+        
+        <!-- Tailwind CSS -->
+        <script src="https://cdn.tailwindcss.com"></script>
+        
+        <!-- Framer Motion for Animations -->
+        <script src="https://cdn.jsdelivr.net/npm/framer-motion@10/dist/framer-motion.umd.js"></script>
+        
+        <!-- Chart.js -->
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        
+        <!-- Font Awesome -->
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+        
+        <!-- Google Fonts -->
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+        
+        <!-- ... باقي الـ CSS والـ Scripts الخاصة بك ... -->
     
-    <style>
-        body { font-family: 'Cairo', sans-serif; }
-        .chart-container { position: relative; height: 40vh; width: 100%; }
-        :root { direction: rtl; }
-    </style>
-    <!-- NEW: Add html5-qrcode library -->
-    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-    
-    <style>
-        body { font-family: 'Cairo', sans-serif; }
-        .chart-container { position: relative; height: 40vh; width: 100%; }
-        :root { direction: rtl; }
-        #qr-reader {
-            width: 100%;
-            max-width: 500px;
-            margin: 1rem auto;
-            border: 2px solid #ccc;
-            border-radius: 8px;
-        }
-        #qr-reader-results {
-            margin-top: 1rem;
-            font-weight: bold;
-            text-align: center;
-        }
-    </style>
-</head>
+        <style>
+            body { font-family: 'Cairo', sans-serif; }
+            .chart-container { position: relative; height: 40vh; width: 100%; }
+            :root { direction: rtl; }
+            #qr-reader {
+                width: 100%;
+                max-width: 500px;
+                margin: 1rem auto;
+                border: 2px solid #ccc;
+                border-radius: 8px;
+            }
+            #qr-reader-results {
+                margin-top: 1rem;
+                font-weight: bold;
+                text-align: center;
+            }
+        </style>
+    </head>
 <body class="bg-gray-100 text-gray-800">
 <div class="container mx-auto p-4 md:p-8">
-    <!-- Animated Help Button -->
-    <div id="help-button-container" class="fixed bottom-6 left-6 z-50">
-        <button class="bg-indigo-600 text-white rounded-full w-16 h-16 flex items-center justify-center shadow-lg transform transition-transform hover:scale-110 animate-pulse">
-            <i class="fas fa-question text-2xl"></i>
-        </button>
-    </div>
+
+    <!-- Install PWA Button -->
+<div id="install-pwa-container" class="fixed bottom-6 left-6 z-50" style="display: none;">
+    <button id="install-pwa-button" class="bg-teal-500 text-white rounded-lg px-4 py-3 flex items-center justify-center shadow-lg transform transition-transform hover:scale-110">
+        <i class="fas fa-download mr-2"></i>
+        <span class="font-bold">تثبيت التطبيق</span>
+    </button>
+</div>
 
 </div>
     <div class="container mx-auto p-4 md:p-8">
@@ -184,6 +192,17 @@
     </div>
 
 <script>
+     if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/service-worker.js')
+          .then(registration => {
+            console.log('Service Worker تم تسجيله بنجاح:', registration);
+          })
+          .catch(error => {
+            console.log('فشل تسجيل Service Worker:', error);
+          });
+      });
+    }
     // ... الكود الخاص بـ QR Scanner لا يتغير ...
     const startScanBtn = document.getElementById('start-scan-btn');
     const qrReaderDiv = document.getElementById('qr-reader');
@@ -239,6 +258,51 @@
       });
     }
 </script>
+<script>
+    const installButtonContainer = document.getElementById('install-pwa-container');
+    const installButton = document.getElementById('install-pwa-button');
+    let deferredPrompt; // متغير لحفظ حدث التثبيت
 
+    window.addEventListener('beforeinstallprompt', (e) => {
+        // 1. منع المتصفح من إظهار الإشعار التلقائي (على أندرويد)
+        e.preventDefault();
+        
+        // 2. احفظ الحدث حتى نتمكن من تشغيله لاحقًا
+        deferredPrompt = e;
+        
+        // 3. أظهر زر التثبيت الخاص بنا لأنه الآن أصبح قابلاً للتثبيت
+        console.log('`beforeinstallprompt` event was fired.');
+        installButtonContainer.style.display = 'block';
+    });
+
+    installButton.addEventListener('click', async () => {
+        // تأكد من أننا ما زلنا نحتفظ بالحدث
+        if (!deferredPrompt) {
+            console.log('The deferred prompt is not available.');
+            return;
+        }
+
+        // 4. أظهر نافذة التثبيت التي التقطناها سابقاً
+        deferredPrompt.prompt();
+        
+        // 5. انتظر نتيجة اختيار المستخدم (تثبيت أو إلغاء)
+        const { outcome } = await deferredPrompt.userChoice;
+        console.log(`User response to the install prompt: ${outcome}`);
+        
+        // 6. لم يعد بإمكاننا استخدام هذا الحدث مرة أخرى، لذا نظفه
+        deferredPrompt = null;
+        
+        // 7. أخفِ الزر بعد محاولة التثبيت
+        installButtonContainer.style.display = 'none';
+    });
+
+    // 8. إذا قام المستخدم بتثبيت التطبيق، فلن نحتاج إلى الزر مرة أخرى
+    window.addEventListener('appinstalled', (evt) => {
+      console.log('PWA was installed');
+      // أخف الزر بشكل دائم
+      installButtonContainer.style.display = 'none';
+      deferredPrompt = null;
+    });
+</script>
 </body>
 </html>
