@@ -6,7 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>تقرير أداء الطالب: <%= student.student_name %></title>
 
-    
+    <!-- PWA Manifest & Theme Color -->
+    <link rel="manifest" href="/manifest.json?unique_code=<%= student.unique_code %>">
+    <meta name="theme-color" content="#4f46e5"> <!-- Indigo-600 color -->
+
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
@@ -24,20 +27,15 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
     
-    <style>
-        body { font-family: 'Cairo', sans-serif; }
-        .chart-container { position: relative; height: 40vh; width: 100%; }
-        /* لتجنب تعارض الـ direction مع Tailwind */
-        :root { direction: rtl; }
-    </style>
-    <!-- NEW: Add html5-qrcode library -->
+    <!-- html5-qrcode library -->
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
-    
+
     <style>
         body { font-family: 'Cairo', sans-serif; }
         .chart-container { position: relative; height: 40vh; width: 100%; }
         :root { direction: rtl; }
-        /* NEW: Styles for QR Scanner */
+        
+        /* Styles for QR Scanner */
         #qr-reader {
             width: 100%;
             max-width: 500px;
@@ -53,190 +51,202 @@
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
+
 <div class="container mx-auto p-4 md:p-8">
-    <!-- Animated Help Button -->
-    <div id="help-button-container" class="fixed bottom-6 left-6 z-50">
-        <button class="bg-indigo-600 text-white rounded-full w-16 h-16 flex items-center justify-center shadow-lg transform transition-transform hover:scale-110 animate-pulse">
-            <i class="fas fa-question text-2xl"></i>
-        </button>
-    </div>
-
-
-<!-- ... existing Detailed Grades Tables ... -->
-</div>
-    <div class="container mx-auto p-4 md:p-8">
-        
-        <!-- Student Header -->
-        <div id="student-header" class="text-center mb-8 p-6 bg-white rounded-xl shadow-md">
-            <h1 class="text-3xl md:text-4xl font-extrabold text-indigo-700">مرحباً، <%= student.student_name %></h1>
-            <p class="text-gray-500 mt-2">هذا هو تقرير أدائك الدراسي المفصل</p>
-        </div>
-<!-- NEW: QR Code Scanner Section -->
-<div id="qr-section" class="my-8 text-center">
-    <button id="start-scan-btn" class="bg-teal-500 hover:bg-teal-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-transform hover:scale-105">
-        <i class="fas fa-qrcode mr-2"></i> تسجيل الحضور بالـ QR
+    <!-- Animated Help Button and Modal -->
+<div id="help-button-container" class="fixed bottom-6 left-6 z-50">
+    <!-- 1. أضفنا id="help-btn" للزر -->
+    <button id="help-btn" class="bg-indigo-600 text-white rounded-full w-16 h-16 flex items-center justify-center shadow-lg transform transition-transform hover:scale-110 animate-pulse">
+        <i class="fas fa-question text-2xl"></i>
     </button>
-    <div id="qr-reader" style="display: none;"></div>
-    <div id="qr-reader-results"></div>
 </div>
-        <!-- Motivational Message -->
-        <% 
-            let message = '';
-            let messageClass = '';
-            if (stats.session.rankPercentage <= 10) {
-                message = `ممتاز! أنت من أفضل 10% من الطلاب في متوسط الحصص. استمر في هذا الأداء الرائع! 🚀`;
-                messageClass = 'bg-green-100 border-green-500 text-green-800';
-            } else if (stats.session.rankPercentage >= 80) {
-                message = `تحتاج إلى بذل المزيد من الجهد في الحصص القادمة. نحن نثق بقدراتك ويمكننا مساعدتك! 💪`;
-                messageClass = 'bg-yellow-100 border-yellow-500 text-yellow-800';
-            }
-        %>
-        <% if (message) { %>
-            <div id="motivational-message" class="p-4 mb-8 border-r-4 rounded-lg shadow-sm <%= messageClass %>">
-                <p class="font-bold"><%= message %></p>
-            </div>
-        <% } %>
 
-        <!-- Stats Cards -->
-        <div id="stats-grid" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div class="bg-white p-6 rounded-xl shadow-md text-center">
-                <h3 class="text-lg font-bold text-gray-500">متوسط درجات الحصص</h3>
-                <p class="text-4xl font-extrabold text-indigo-600 mt-2"><%= stats.session.average.toFixed(1) %></p>
-                <p class="text-sm text-gray-400 mt-1">متوسط الصف: <%= stats.session.classAverage.toFixed(1) %></p>
-            </div>
-            <div class="bg-white p-6 rounded-xl shadow-md text-center">
-                <h3 class="text-lg font-bold text-gray-500">ترتيبك في الحصص</h3>
-                <p class="text-4xl font-extrabold text-indigo-600 mt-2"><%= stats.session.rank %></p>
-                 <p class="text-sm text-gray-400 mt-1">
-                    ضمن أفضل <%= stats.session.rankPercentage.toFixed(0) %>%
-                </p>
-            </div>
-            <div class="bg-white p-6 rounded-xl shadow-md text-center">
-                <h3 class="text-lg font-bold text-gray-500">نسبة الحضور</h3>
-                <% 
-                    const sessionsForAttendance = (data && data.sessions) ? data.sessions : [];
-                    const totalSessions = sessionsForAttendance.length;
-                    const attendedSessions = sessionsForAttendance.filter(s => s && s.attendance === 'حاضر').length;
-                    const attendancePercentage = totalSessions > 0 ? (attendedSessions / totalSessions) * 100 : 0;
-                %>
-                <p class="text-4xl font-extrabold text-indigo-600 mt-2"><%= attendancePercentage.toFixed(0) %>%</p>
-                <p class="text-sm text-gray-400 mt-1"><%= attendedSessions %> من <%= totalSessions %> حصص</p>
-            </div>
+<!-- 2. أضفنا النافذة المنبثقة (Modal) بالكامل. ستكون مخفية بشكل افتراضي -->
+<div id="help-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden">
+    <div class="bg-white rounded-lg shadow-xl p-6 md:p-8 w-full max-w-2xl mx-auto" dir="rtl">
+        <!-- رأس النافذة -->
+        <div class="flex justify-between items-center border-b pb-3 mb-4">
+            <h3 class="text-2xl font-bold text-indigo-700">دليل المساعدة</h3>
+            <button id="close-modal-btn" class="text-gray-500 hover:text-gray-800 text-2xl">×</button>
         </div>
-
         
-
-        <!-- Detailed Grades Tables -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <!-- Major Exams -->
-            <div class="bg-white p-6 rounded-xl shadow-md">
-                <h2 class="text-2xl font-bold mb-4">الامتحانات الكبرى</h2>
-                <div class="space-y-4">
-                <% Object.keys(stats.exams).forEach(examName => { %>
-                    <div class="border border-gray-200 p-4 rounded-lg">
-                        <h4 class="font-bold text-lg text-indigo-700"><%= examName %></h4>
-                        <div class="flex justify-between items-center mt-2 text-sm">
-                            <span class="font-semibold">درجتك: <span class="text-xl font-extrabold <%= stats.exams[examName].grade > (stats.exams[examName].classAverage) ? 'text-green-500' : 'text-red-500' %>"><%= stats.exams[examName].grade %></span></span>
-                            <span>متوسط الصف: <%= stats.exams[examName].classAverage %></span>
-                            <span>ترتيبك: <%= stats.exams[examName].rank %> / <%= stats.exams[examName].totalStudents %></span>
-                        </div>
-                    </div>
-                <% }); %>
-                </div>
+        <!-- محتوى المساعدة -->
+        <div class="space-y-4 text-gray-700">
+            <div>
+                <h4 class="font-bold text-lg"><i class="fas fa-chart-line text-indigo-500 mr-2"></i> فهم الإحصائيات</h4>
+                <p>تُظهر البطاقات العلوية ملخصاً لأدائك مقارنة بباقي الطلاب في نفس المجموعة. <strong class="text-indigo-600">ترتيبك في الحصص</strong> يوضح موقعك بناءً على متوسط درجاتك.</p>
             </div>
-
-            <!-- Session Grades -->
-            <div class="bg-white p-6 rounded-xl shadow-md">
-                <h2 class="text-2xl font-bold mb-4">درجات الحصص</h2>
-                <div class="max-h-96 overflow-y-auto">
-                    <table class="w-full text-center">
-                        <thead class="bg-gray-100">
-                            <tr>
-                                <th class="p-3 font-bold">الحصة</th>
-                                <th class="p-3 font-bold">الدرجة</th>
-                                <th class="p-3 font-bold">الحضور</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <% if (data && data.sessions && data.sessions.length > 0) { %>
-                                <% data.sessions.forEach((session, index) => { %>
-                                    <% if (session) { %>
-                                        <tr class="border-b">
-                                            <td class="p-3">حصة <%= index + 1 %></td>
-                                            <td class="p-3 font-bold <%= session.grade > 5 ? 'text-green-600' : 'text-red-600' %>"><%= session.grade ?? '-' %></td>
-                                            <td class="p-3">
-                                                <span class="px-2 py-1 text-xs rounded-full <%= session.attendance === 'حاضر' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' %>">
-                                                    <%= session.attendance ?? 'لم يسجل' %>
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    <% } %>
-                                <% }); %>
-                            <% } else { %>
-                                <tr>
-                                    <td colspan="3" class="p-4 text-center text-gray-500">لا توجد بيانات حصص لعرضها.</td>
-                                </tr>
-                            <% } %>
-                            </tbody>
-                    </table>
-                </div>
+            <div>
+                <h4 class="font-bold text-lg"><i class="fas fa-qrcode text-teal-500 mr-2"></i> تسجيل الحضور</h4>
+                <p>اضغط على زر <strong class="text-teal-600">تسجيل الحضور بالـ QR</strong> ووجه كاميرا هاتفك نحو الكود الذي يعرضه المساعد لتسجيل حضورك في الحصة الحالية.</p>
+            </div>
+            <div>
+                <h4 class="font-bold text-lg"><i class="fas fa-star text-yellow-500 mr-2"></i> الدرجات والألوان</h4>
+                <ul class="list-disc list-inside mt-2 space-y-1">
+                    <li>الدرجات باللون <strong class="text-green-600">الأخضر</strong> تعني أن أداءك أعلى من متوسط الصف.</li>
+                    <li>الدرجات باللون <strong class="text-red-600">الأحمر</strong> تعني أن أداءك أقل من متوسط الصف.</li>
+                </ul>
+            </div>
+            <div>
+                <h4 class="font-bold text-lg"><i class="fas fa-mobile-alt text-purple-500 mr-2"></i> تثبيت التطبيق</h4>
+                <p>للوصول السريع لصفحتك، يمكنك تثبيتها كتطبيق على هاتفك. <strong class="text-indigo-600">من المفترض أن تظهر لك نافذة التثبيت الآن.</strong> إذا لم تظهر، فقد يعني هذا أن التطبيق مثبت بالفعل أو أن متصفحك لا يدعم هذه الميزة.</p>
             </div>
         </div>
     </div>
+</div>
+        
+    <!-- Student Header -->
+    <div id="student-header" class="text-center mb-8 p-6 bg-white rounded-xl shadow-md">
+        <h1 class="text-3xl md:text-4xl font-extrabold text-indigo-700">مرحباً، <%= student.student_name %></h1>
+        <p class="text-gray-500 mt-2">هذا هو تقرير أدائك الدراسي المفصل</p>
+    </div>
 
-<!-- في نهاية ملف views/student-info.ejs -->
+    <!-- QR Code Scanner Section -->
+    <div id="qr-section" class="my-8 text-center">
+        <button id="start-scan-btn" class="bg-teal-500 hover:bg-teal-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg transition-transform hover:scale-105">
+            <i class="fas fa-qrcode mr-2"></i> تسجيل الحضور بالـ QR
+        </button>
+        <div id="qr-reader" style="display: none;"></div>
+        <div id="qr-reader-results"></div>
+    </div>
+
+    <!-- Motivational Message -->
+    <% 
+        let message = '';
+        let messageClass = '';
+        if (stats.session.rankPercentage <= 10) {
+            message = `ممتاز! أنت من أفضل 10% من الطلاب في متوسط الحصص. استمر في هذا الأداء الرائع! 🚀`;
+            messageClass = 'bg-green-100 border-green-500 text-green-800';
+        } else if (stats.session.rankPercentage >= 80) {
+            message = `تحتاج إلى بذل المزيد من الجهد في الحصص القادمة. نحن نثق بقدراتك ويمكننا مساعدتك! 💪`;
+            messageClass = 'bg-yellow-100 border-yellow-500 text-yellow-800';
+        }
+    %>
+    <% if (message) { %>
+        <div id="motivational-message" class="p-4 mb-8 border-r-4 rounded-lg shadow-sm <%= messageClass %>">
+            <p class="font-bold"><%= message %></p>
+        </div>
+    <% } %>
+
+    <!-- Stats Cards -->
+    <div id="stats-grid" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div class="bg-white p-6 rounded-xl shadow-md text-center">
+            <h3 class="text-lg font-bold text-gray-500">متوسط درجات الحصص</h3>
+            <p class="text-4xl font-extrabold text-indigo-600 mt-2"><%= stats.session.average.toFixed(1) %></p>
+            <p class="text-sm text-gray-400 mt-1">متوسط الصف: <%= stats.session.classAverage.toFixed(1) %></p>
+        </div>
+        <div class="bg-white p-6 rounded-xl shadow-md text-center">
+            <h3 class="text-lg font-bold text-gray-500">ترتيبك في الحصص</h3>
+            <p class="text-4xl font-extrabold text-indigo-600 mt-2"><%= stats.session.rank %></p>
+             <p class="text-sm text-gray-400 mt-1">
+                ضمن أفضل <%= stats.session.rankPercentage.toFixed(0) %>%
+            </p>
+        </div>
+        <div class="bg-white p-6 rounded-xl shadow-md text-center">
+            <h3 class="text-lg font-bold text-gray-500">نسبة الحضور</h3>
+            <% 
+                const sessionsForAttendance = (data && data.sessions) ? data.sessions : [];
+                const totalSessions = sessionsForAttendance.length;
+                const attendedSessions = sessionsForAttendance.filter(s => s && s.attendance === 'حاضر').length;
+                const attendancePercentage = totalSessions > 0 ? (attendedSessions / totalSessions) * 100 : 0;
+            %>
+            <p class="text-4xl font-extrabold text-indigo-600 mt-2"><%= attendancePercentage.toFixed(0) %>%</p>
+            <p class="text-sm text-gray-400 mt-1"><%= attendedSessions %> من <%= totalSessions %> حصص</p>
+        </div>
+    </div>
+
+    <!-- Detailed Grades Tables -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- Major Exams -->
+        <div class="bg-white p-6 rounded-xl shadow-md">
+            <h2 class="text-2xl font-bold mb-4">الامتحانات الكبرى</h2>
+            <div class="space-y-4">
+            <% Object.keys(stats.exams).forEach(examName => { %>
+                <div class="border border-gray-200 p-4 rounded-lg">
+                    <h4 class="font-bold text-lg text-indigo-700"><%= examName %></h4>
+                    <div class="flex justify-between items-center mt-2 text-sm">
+                        <span class="font-semibold">درجتك: <span class="text-xl font-extrabold <%= stats.exams[examName].grade > (stats.exams[examName].classAverage) ? 'text-green-500' : 'text-red-500' %>"><%= stats.exams[examName].grade %></span></span>
+                        <span>متوسط الصف: <%= stats.exams[examName].classAverage %></span>
+                        <span>ترتيبك: <%= stats.exams[examName].rank %> / <%= stats.exams[examName].totalStudents %></span>
+                    </div>
+                </div>
+            <% }); %>
+            </div>
+        </div>
+
+        <!-- Session Grades -->
+        <div class="bg-white p-6 rounded-xl shadow-md">
+            <h2 class="text-2xl font-bold mb-4">درجات الحصص</h2>
+            <div class="max-h-96 overflow-y-auto">
+                <table class="w-full text-center">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th class="p-3 font-bold">الحصة</th>
+                            <th class="p-3 font-bold">الدرجة</th>
+                            <th class="p-3 font-bold">الحضور</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% if (data && data.sessions && data.sessions.length > 0) { %>
+                            <% data.sessions.forEach((session, index) => { %>
+                                <% if (session) { %>
+                                    <tr class="border-b">
+                                        <td class="p-3">حصة <%= index + 1 %></td>
+                                        <td class="p-3 font-bold <%= session.grade > 5 ? 'text-green-600' : 'text-red-600' %>"><%= session.grade ?? '-' %></td>
+                                        <td class="p-3">
+                                            <span class="px-2 py-1 text-xs rounded-full <%= session.attendance === 'حاضر' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' %>">
+                                                <%= session.attendance ?? 'لم يسجل' %>
+                                            </span>
+                                        </td>
+                                    </tr>
+                                <% } %>
+                            <% }); %>
+                        <% } else { %>
+                            <tr>
+                                <td colspan="3" class="p-4 text-center text-gray-500">لا توجد بيانات حصص لعرضها.</td>
+                            </tr>
+                        <% } %>
+                        </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- QR Scanner Script -->
 <script>
     const startScanBtn = document.getElementById('start-scan-btn');
     const qrReaderDiv = document.getElementById('qr-reader');
     const resultsDiv = document.getElementById('qr-reader-results');
     const studentUniqueCode = "<%= student.unique_code %>";
 
-    // التحقق من تحميل المكتبة
-    if (typeof Html5Qrcode === 'undefined') {
-        resultsDiv.innerHTML = '<span class="text-red-600">خطأ فادح: مكتبة الكاميرا لم تحمل.</span>';
-    } else {
+    if (typeof Html5Qrcode !== 'undefined') {
         const html5QrCode = new Html5Qrcode("qr-reader");
 
-        // --- هذه هي الدالة التي سنختبرها ---
         const qrCodeSuccessCallback = (decodedText, decodedResult) => {
-            // الخطوة الأولى: أوقف الكاميرا فوراً لمنع المسح المتكرر
-            html5QrCode.stop().catch(err => console.error("فشل إيقاف الكاميرا:", err));
+            html5QrCode.stop().catch(err => console.error("Failed to stop camera:", err));
+            resultsDiv.innerHTML = `<span class="text-blue-600 font-bold">تم المسح! جاري التحقق...</span>`;
             
-            // الخطوة الثانية: اعرض رسالة بسيطة جداً باستخدام alert
-            // إذا ظهر هذا التنبيه، فهذا يعني أن الدالة تعمل!
-            alert(`تم مسح الكود بنجاح! القيمة هي: ${decodedText}`);
-
-            // الخطوة الثالثة: اعرض رسالة للمستخدم
-            resultsDiv.innerHTML = `<span class="text-blue-600 font-bold">تم المسح! القيمة: ${decodedText}. جاري الإرسال للخادم...</span>`;
-            
-            // الخطوة الرابعة: أرسل البيانات للخادم
             fetch('/scan/verify', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ token: decodedText, unique_code: studentUniqueCode })
             })
-            .then(response => {
-                if (!response.ok) {
-                    // إذا كانت الاستجابة خطأ (مثل 400 أو 500)
-                    return response.json().then(errData => Promise.reject(errData));
-                }
-                return response.json(); // إذا كانت ناجحة
-            })
+            .then(response => response.json())
             .then(data => {
                 if (data.success) {
                     resultsDiv.innerHTML = `<span class="text-green-600 font-bold">${data.message}</span>`;
-                    // لا تقم بإعادة تحميل الصفحة الآن، لنرى الرسالة
+                    setTimeout(() => window.location.reload(), 2000); // Reload to show updated attendance
                 } else {
                     resultsDiv.innerHTML = `<span class="text-red-600 font-bold">${data.message}</span>`;
                 }
             })
             .catch(error => {
                 console.error('Error during fetch:', error);
-                resultsDiv.innerHTML = `<span class="text-red-600 font-bold">خطأ في الاتصال بالخادم: ${error.message || 'فشل التحقق'}</span>`;
+                resultsDiv.innerHTML = `<span class="text-red-600 font-bold">خطأ في الاتصال بالخادم.</span>`;
             });
         };
 
-        // --- باقي الكود ---
         const config = { fps: 10, qrbox: { width: 250, height: 250 } };
 
         startScanBtn.addEventListener('click', () => {
@@ -246,11 +256,142 @@
             
             html5QrCode.start({ facingMode: "environment" }, config, qrCodeSuccessCallback)
             .catch(err => {
-                resultsDiv.innerHTML = `<span class="text-red-600 font-bold">لا يمكن تشغيل الكاميرا. يرجى السماح بالوصول.</span>`;
+                resultsDiv.innerHTML = `<span class="text-red-600 font-bold">لا يمكن تشغيل الكاميرا. يرجى السماح بالوصول إليها.</span>`;
             });
         });
     }
 </script>
-Use code with 
+
+<!-- PWA Service Worker Registration Script -->
+<script>
+    // التأكد من أن المتصفح يدعم Service Workers
+    if ('serviceWorker' in navigator) {
+        // استخدام window.onload يضمن أن تسجيل الـ Service Worker لا يؤخر تحميل الصفحة
+        window.addEventListener('load', () => {
+            // تسجيل ملف الـ Service Worker
+            navigator.serviceWorker.register('/sw.js?unique_code=<%= student.unique_code %>')
+                .then(registration => {
+                    console.log('Service Worker تم تسجيله بنجاح:', registration);
+                })
+                .catch(error => {
+                    console.log('فشل تسجيل Service Worker:', error);
+                });
+        });
+    }
+</script>
+<script>
+    // انتظر تحميل الصفحة بالكامل
+    window.addEventListener('load', () => {
+        // تحديد العناصر من الـ DOM
+        const helpBtn = document.getElementById('help-btn');
+        const helpModal = document.getElementById('help-modal');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+
+        // التحقق من وجود العناصر لتجنب الأخطاء
+        if (helpBtn && helpModal && closeModalBtn) {
+            
+            // وظيفة لفتح النافذة
+            const openModal = () => {
+                helpModal.classList.remove('hidden'); // إزالة فئة hidden لإظهار النافذة
+            };
+
+            // وظيفة لإغلاق النافذة
+            const closeModal = () => {
+                helpModal.classList.add('hidden'); // إضافة فئة hidden لإخفاء النافذة
+            };
+
+            // ربط الأحداث بالأزرار
+            helpBtn.addEventListener('click', openModal); // عند الضغط على زر المساعدة، افتح النافذة
+            closeModalBtn.addEventListener('click', closeModal); // عند الضغط على زر الإغلاق، أغلق النافذة
+
+            // إغلاق النافذة عند الضغط على الخلفية السوداء
+            helpModal.addEventListener('click', (event) => {
+                // إذا كان العنصر الذي تم الضغط عليه هو الخلفية نفسها (وليس المحتوى الداخلي)
+                if (event.target === helpModal) {
+                    closeModal();
+                }
+            });
+        }
+    });
+</script>
+<!-- Help Modal and PWA Install Script -->
+<script>
+    // انتظر تحميل الصفحة بالكامل
+    window.addEventListener('load', () => {
+        // --- START PWA Install Logic ---
+
+        let deferredPrompt; // سيتم استخدام هذا المتغير لتخزين حدث التثبيت
+
+        // 1. استمع للحدث الذي يرسله المتصفح عندما يكون التطبيق قابلاً للتثبيت
+        window.addEventListener('beforeinstallprompt', (e) => {
+            // منع ظهور نافذة التثبيت المصغرة الافتراضية في بعض المتصفحات
+            e.preventDefault();
+            // احفظ الحدث حتى نتمكن من تشغيله لاحقًا
+            deferredPrompt = e;
+            console.log('PWA: تطبيق جاهز للتثبيت.');
+            
+            // يمكنك هنا إظهار زر التثبيت الخاص بك إذا أردت
+            // على سبيل المثال، يمكننا إظهار زر خاص داخل نافذة المساعدة
+            const installButtonInModal = document.getElementById('pwa-install-btn');
+            if(installButtonInModal) {
+                installButtonInModal.style.display = 'inline-flex'; // إظهار الزر
+            }
+        });
+
+        // --- END PWA Install Logic ---
+
+
+        // --- START Help Modal Logic ---
+        const helpBtn = document.getElementById('help-btn');
+        const helpModal = document.getElementById('help-modal');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+
+        if (helpBtn && helpModal && closeModalBtn) {
+            
+            const openModal = () => {
+                helpModal.classList.remove('hidden');
+            };
+
+            const closeModal = () => {
+                helpModal.classList.add('hidden');
+            };
+
+            // 2. تعديل وظيفة النقر على زر المساعدة الرئيسي
+            helpBtn.addEventListener('click', () => {
+                // أولاً، افتح نافذة المساعدة كالمعتاد
+                openModal();
+
+                // ثانياً، تحقق مما إذا كان لدينا حدث تثبيت محفوظ
+                if (deferredPrompt) {
+                    console.log('PWA: عرض نافذة التثبيت.');
+                    // اعرض نافذة التثبيت الخاصة بالمتصفح
+                    deferredPrompt.prompt();
+                    
+                    // انتظر لترى ما إذا كان المستخدم قد قبل التثبيت أم لا
+                    deferredPrompt.userChoice.then((choiceResult) => {
+                        if (choiceResult.outcome === 'accepted') {
+                            console.log('PWA: المستخدم قبل التثبيت.');
+                        } else {
+                            console.log('PWA: المستخدم رفض التثبيت.');
+                        }
+                        // امسح الحدث المحفوظ، حيث لا يمكن استخدامه إلا مرة واحدة
+                        deferredPrompt = null;
+                    });
+                } else {
+                    console.log('PWA: التطبيق غير قابل للتثبيت الآن أو تم تثبيته بالفعل.');
+                }
+            });
+
+            closeModalBtn.addEventListener('click', closeModal);
+
+            helpModal.addEventListener('click', (event) => {
+                if (event.target === helpModal) {
+                    closeModal();
+                }
+            });
+        }
+        // --- END Help Modal Logic ---
+    });
+</script>
 </body>
 </html>

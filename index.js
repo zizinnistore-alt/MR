@@ -660,7 +660,54 @@ app.post('/scan/verify', async (req, res) => {
 });
 
 // --- END: NEW MANAGEMENT & QR ROUTES ---
+// في ملف الخادم (app.js)
+app.get('/manifest.json', (req, res) => {
+    const { unique_code } = req.query; // نحصل على كود الطالب من الرابط
+    if (!unique_code) {
+        return res.status(400).json({ error: 'Student unique code is required' });
+    }
 
+    const manifest = {
+        "name": "تقرير أداء الطالب",
+        "short_name": "تقريري",
+        "start_url": `/info/${unique_code}`, // هذا هو الرابط الذي سيفتح عند تشغيل التطبيق
+        "display": "standalone",
+        "background_color": "#f3f4f6", // bg-gray-100
+        "theme_color": "#4f46e5", // bg-indigo-600
+        "orientation": "portrait-primary",
+        "icons": [
+            {
+                "src": "/icons/icon-192x192.png",
+                "type": "image/png",
+                "sizes": "192x192"
+            },
+            {
+                "src": "/icons/icon-512x512.png",
+                "type": "image/png",
+                "sizes": "512x512"
+            }
+        ]
+    };
+
+    res.json(manifest);
+});
+
+app.get('/sw.js', (req, res) => {
+    // لا يوجد require هنا الآن
+    const { unique_code } = req.query;
+    if (!unique_code) {
+        return res.status(400).send('// Student unique code is required');
+    }
+
+    // هذا هو الكود الذي سيتم إرساله كملف sw.js
+    const serviceWorkerScript = `
+        const CACHE_NAME = 'student-report-cache-v1';
+        // ... باقي كود الـ service worker ...
+    `;
+
+    res.type('application/javascript');
+    res.send(serviceWorkerScript);
+});
 // 5. تشغيل الخادم
 app.listen(port, () => {
     console.log(`Server is running at http://localhost:${port}`);
