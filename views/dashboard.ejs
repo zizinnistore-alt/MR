@@ -4,111 +4,274 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>لوحة تحكم المدرس</title>
+    <title>لوحة التحليل الاستراتيجي</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/heroicons@2.0.13/24/outline/index.js"></script>
     <style>
-        body { font-family: 'Cairo', sans-serif; }
-        .chart-container { position: relative; height: 400px; width: 100%; }
+        body { font-family: 'Cairo', sans-serif; scroll-behavior: smooth; }
+        .chart-container { position: relative; height: 350px; width: 100%; }
+        .tab-button.active { border-color: #4f46e5; color: #4f46e5; background-color: #eef2ff; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .table-wrapper::-webkit-scrollbar { width: 6px; height: 6px;}
+        .table-wrapper::-webkit-scrollbar-track { background: #f1f1f1; }
+        .table-wrapper::-webkit-scrollbar-thumb { background: #888; border-radius: 3px; }
+        .table-wrapper::-webkit-scrollbar-thumb:hover { background: #555; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .animate-fade-in { animation: fadeIn 0.5s ease-in-out; }
     </style>
 </head>
-<body class="bg-gray-100">
+<body class="bg-gray-50 text-gray-800">
 
-    <div class="container mx-auto p-6">
-        <header class="flex justify-between items-center mb-6">
-            <h1 class="text-3xl font-bold text-gray-800">لوحة التحكم الرئيسية</h1>
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8">
+        <!-- Header -->
+        <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
             <div>
-                <!-- MODIFIED: Added a new button -->
-                <div class="flex gap-3">
-                    <a href="/manage" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">
-                        إدارة الطلاب والحصص
-                    </a>
-                    <a href="/export/csv" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">
-                        تصدير CSV
-                    </a>
-                    <a href="/upload" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">
-                        رفع ملف جديد
-                    </a>
-                </div>
+                <h1 class="text-3xl font-extrabold text-gray-900">لوحة التحليل الاستراتيجي</h1>
+                <p class="text-gray-500 mt-1">مرحباً بك في مركز التحكم الشامل لأداء طلابك.</p>
+            </div>
+            <div class="flex gap-2 mt-4 sm:mt-0">
+                 <a href="/manage" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-sm transition-transform hover:scale-105">
+                    إدارة النظام
+                </a>
+                 <a href="/upload" class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 font-bold py-2 px-4 rounded-lg shadow-sm transition-transform hover:scale-105">
+                    رفع ملف
+                </a>
             </div>
         </header>
-        <!-- Stat Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-            <div class="bg-white p-6 rounded-xl shadow-lg">
-                <h3 class="text-gray-500 font-semibold">إجمالي الطلاب</h3>
-                <p class="text-4xl font-extrabold text-indigo-600 mt-2"><%= totalStudents %></p>
-            </div>
-            <div class="bg-white p-6 rounded-xl shadow-lg">
-                <h3 class="text-gray-500 font-semibold">نسبة الحضور العامة</h3>
-                <p class="text-4xl font-extrabold text-green-600 mt-2"><%= overallAttendance %>%</p>
-            </div>
-             <div class="bg-white p-6 rounded-xl shadow-lg">
-                <h3 class="text-gray-500 font-semibold">أعلى متوسط امتحان</h3>
-                <% const topExam = Object.entries(examAverages).sort((a,b) => b[1] - a[1])[0] || ['-', 0]; %>
-                <p class="text-xl font-bold text-blue-600 mt-2 truncate"><%= topExam[0] %></p>
-                <p class="text-2xl font-extrabold text-blue-600"><%= topExam[1].toFixed(1) %></p>
-            </div>
-        </div>
 
-        <!-- Charts -->
-        <!-- views/dashboard.ejs -->
+        <% if (hasData) { %>
+            <div id="dashboard-content">
+                <!-- Tabs Navigation -->
+                <div class="mb-6 border-b border-gray-200">
+                    <nav class="flex -mb-px space-x-1 sm:space-x-4 overflow-x-auto" id="tabs">
+                        <button class="tab-button active shrink-0 text-gray-600 hover:text-indigo-600 whitespace-nowrap py-3 px-3 sm:px-4 border-b-2 font-semibold text-sm sm:text-base" data-tab="overview">
+                            <i-heroicons-chart-pie class="inline-block w-5 h-5"></i-heroicons-chart-pie> نظرة عامة
+                        </button>
+                        <button class="tab-button shrink-0 text-gray-600 hover:text-indigo-600 whitespace-nowrap py-3 px-3 sm:px-4 border-b-2 font-semibold text-sm sm:text-base border-transparent" data-tab="performance">
+                            <i-heroicons-presentation-chart-line class="inline-block w-5 h-5"></i-heroicons-presentation-chart-line> تحليل الأداء
+                        </button>
+                        <button class="tab-button shrink-0 text-gray-600 hover:text-indigo-600 whitespace-nowrap py-3 px-3 sm:px-4 border-b-2 font-semibold text-sm sm:text-base border-transparent" data-tab="students">
+                            <i-heroicons-users class="inline-block w-5 h-5"></i-heroicons-users> تحليل الطلاب
+                        </button>
+                         <button class="tab-button shrink-0 text-gray-600 hover:text-indigo-600 whitespace-nowrap py-3 px-3 sm:px-4 border-b-2 font-semibold text-sm sm:text-base border-transparent" data-tab="attendance">
+                            <i-heroicons-calendar-days class="inline-block w-5 h-5"></i-heroicons-calendar-days> الحضور والمشاركة
+                        </button>
+                    </nav>
+                </div>
 
-<!-- قائمة الامتحانات التفصيلية -->
-<div class="mt-8 bg-white p-6 rounded-xl shadow-lg">
-    <h2 class="text-xl font-bold mb-4">تفاصيل نتائج الامتحانات</h2>
-    <div class="space-y-3">
-        <% if (Object.keys(examAverages).length > 0) { %>
-            <% Object.keys(examAverages).forEach(examName => { %>
-                <a href="/exam/<%= encodeURIComponent(examName) %>" class="block bg-gray-50 hover:bg-gray-100 p-4 rounded-lg transition-colors">
-                    <div class="flex justify-between items-center">
-                        <span class="font-semibold text-gray-800"><%= examName %></span>
-                        <div class="flex items-center gap-4">
-                            <span class="text-sm text-gray-500">المتوسط: <%= examAverages[examName].toFixed(1) %></span>
-                            <span class="text-indigo-600 font-bold">عرض النتائج →</span>
+                <div id="tab-contents">
+                    <!-- Overview Tab -->
+                    <div id="overview" class="tab-content active animate-fade-in">
+                        <!-- KPIs Grid: "متوسط الأداء العام" card has been REMOVED -->
+                        <div class="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                            <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><h3 class="text-sm font-semibold text-gray-500">إجمالي الطلاب</h3><p class="text-3xl font-bold text-indigo-600 mt-1"><%= totalStudents %></p></div>
+                            <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><h3 class="text-sm font-semibold text-gray-500">نسبة الحضور</h3><p class="text-3xl font-bold text-green-600 mt-1"><%= overallAttendance %>%</p></div>
+                            <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><h3 class="text-sm font-semibold text-gray-500">طلاب بحاجة لدعم</h3><p class="text-3xl font-bold text-red-600 mt-1"><%= atRiskCount %></p></div>
+                            <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><h3 class="text-sm font-semibold text-gray-500">أكثر طالب تحسنًا</h3><p class="text-lg font-bold text-teal-600 mt-1 truncate"><%= mostImprovedStudent.name %></p></div>
+                        </div>
+
+                        <!-- Main Charts Grid -->
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <!-- Exam Comparison Chart -->
+                            <div class="bg-white p-4 sm:p-6 rounded-xl border border-gray-200 shadow-sm">
+                                <h3 class="font-bold text-lg mb-2">مقارنة أداء الامتحانات</h3>
+                                <p class="text-sm text-gray-500 mb-4">متوسط أداء الفصل في كل امتحان رئيسي مقارنة بالمتوسط العام للحصص.</p>
+                                <div class="chart-container">
+                                    <canvas id="examComparisonChart"></canvas>
+                                </div>
+                            </div>
+                    
+                            <!-- Performance Gap Chart -->
+                            <div class="bg-white p-4 sm:p-6 rounded-xl border border-gray-200 shadow-sm">
+                                <h3 class="font-bold text-lg mb-2">تحليل فجوة الأداء</h3>
+                                <p class="text-sm text-gray-500 mb-4">مقارنة بين متوسط أداء أفضل 5 طلاب وأسوأ 5 طلاب في الامتحانات.</p>
+                                <div class="chart-container">
+                                    <canvas id="performanceGapChart"></canvas>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </a>
-            <% }) %>
+
+                    <!-- Performance Analysis Tab -->
+                    <div id="performance" class="tab-content animate-fade-in">
+                         <div class="bg-white p-4 sm:p-6 rounded-xl border border-gray-200 shadow-sm">
+                            <h3 class="font-bold text-lg mb-4">ملخص أداء الامتحانات</h3>
+                             <div class="table-wrapper overflow-x-auto">
+                                <% if(examDetails.length > 0) { %>
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-50"><tr><th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">الامتحان</th><th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">المتوسط</th><th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">أعلى درجة</th><th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">أقل درجة</th><th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">الانحراف المعياري</th><th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">المشاركين</th><th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">إجراءات</th></tr></thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        <% examDetails.forEach(exam => { %>
+                                        <tr><td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900"><%= exam.name %></td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><%= exam.average %></td><td class="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-semibold"><%= exam.highest %></td><td class="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-semibold"><%= exam.lowest %></td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><%= exam.stdDev %></td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><%= exam.participants %></td><td class="px-6 py-4 whitespace-nowrap text-sm font-medium"><a href="/exam/<%= encodeURIComponent(exam.name) %>" class="text-indigo-600 hover:text-indigo-900">عرض التفاصيل</a></td></tr>
+                                        <% }) %>
+                                    </tbody>
+                                </table>
+                                <% } else { %><p class="text-center text-gray-500 py-8">لا توجد بيانات امتحانات لعرضها.</p><% } %>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- --- MODIFIED --- Student Analysis Tab -->
+                    <div id="students" class="tab-content animate-fade-in">
+                        <div class="bg-white p-4 sm:p-6 rounded-xl border border-gray-200 shadow-sm">
+                           <h3 class="font-bold text-lg mb-4">قائمة صدارة الطلاب (Leaderboard)</h3>
+                           <p class="text-sm text-gray-500 mb-4">يتم الترتيب بناءً على متوسط درجات الامتحانات.</p>
+                           <input type="text" id="studentSearch" placeholder="ابحث عن طالب بالاسم..." class="mb-4 w-full p-2 border border-gray-300 rounded-md">
+                            <div class="table-wrapper overflow-x-auto max-h-[500px]">
+                               <table class="min-w-full divide-y divide-gray-200" id="studentTable">
+                                   <thead class="bg-gray-50 sticky top-0">
+                                       <tr>
+                                           <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">الترتيب</th>
+                                           <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">الاسم</th>
+                                           <!-- "المتوسط العام" REMOVED, "متوسط الامتحانات" is now the primary metric -->
+                                           <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">متوسط الامتحانات</th>
+                                           <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">متوسط الحصص</th>
+                                           <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">الحضور</th>
+                                           <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">عرض التقرير</th>
+                                       </tr>
+                                   </thead>
+                                   <tbody class="bg-white divide-y divide-gray-200">
+                                       <% studentLeaderboard.forEach(student => { %>
+                                       <tr class="student-row">
+                                           <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-700"><%= student.rank %></td>
+                                           <td class="student-name px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900"><%= student.name %></td>
+                                           <!-- "overall_avg" REMOVED, "exam_avg" is now the key metric -->
+                                           <td class="px-6 py-4 whitespace-nowrap text-sm text-indigo-600 font-bold"><%= student.exam_avg %></td>
+                                           <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><%= student.session_avg %></td>
+                                           <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold <%= student.attendance >= 85 ? 'text-green-600' : 'text-orange-500' %>"><%= student.attendance %>%</td>
+                                           <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                               <a href="/info/<%= student.unique_code %>" class="text-indigo-600 hover:text-indigo-900">افتح التقرير</a>
+                                           </td>
+                                       </tr>
+                                       <% }) %>
+                                   </tbody>
+                               </table>
+                           </div>
+                       </div>
+                   </div>
+
+                    <!-- Attendance & Engagement Tab -->
+                    <div id="attendance" class="tab-content animate-fade-in">
+                       <h2 class="text-2xl font-bold mb-6">تحليل تأثير الحضور على الأداء</h2>
+                       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <!-- Chart 1: Attendance vs Session Grades -->
+                            <div class="bg-white p-4 sm:p-6 rounded-xl border border-gray-200 shadow-sm">
+                               <h3 class="font-bold text-lg mb-2">تأثير الحضور على درجات الحصص</h3>
+                               <p class="text-sm text-gray-500 mb-4">هل الحضور اليومي يحسن أداء الطالب في التقييمات المستمرة؟</p>
+                               <div class="chart-container"><canvas id="attendanceVsSessionChart"></canvas></div>
+                           </div>
+                           <!-- Chart 2: Attendance vs Exam Grades -->
+                           <div class="bg-white p-4 sm:p-6 rounded-xl border border-gray-200 shadow-sm">
+                               <h3 class="font-bold text-lg mb-2">تأثير الحضور على درجات الامتحانات</h3>
+                               <p class="text-sm text-gray-500 mb-4">هل يترجم الحضور إلى نجاح في الامتحانات الكبرى؟</p>
+                               <div class="chart-container"><canvas id="attendanceVsExamChart"></canvas></div>
+                           </div>
+                       </div>
+                   </div>
+                </div>
+            </div>
         <% } else { %>
-            <p class="text-gray-500">لا توجد بيانات امتحانات لعرضها. يرجى رفع ملف أولاً.</p>
+            <!-- Empty State -->
+            <div class="text-center p-8 bg-white rounded-xl shadow-lg max-w-lg mx-auto mt-16">
+                <i-heroicons-document-chart-bar class="mx-auto h-16 w-16 text-indigo-400"></i-heroicons-document-chart-bar>
+                <h2 class="mt-4 text-2xl font-bold text-gray-900">لا توجد بيانات طلاب بعد</h2>
+                <p class="mt-2 text-gray-500">ابدأ برفع أول ملف إكسل لبيانات الطلاب لترى سحر التحليلات.</p>
+                <div class="mt-6">
+                    <a href="/upload" class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700">رفع ملف الآن</a>
+                </div>
+            </div>
         <% } %>
     </div>
-</div>
-    </div>
 
+    <!-- JavaScript Section (No changes needed here) -->
     <script>
-        // 1. Exam Averages Chart
-        const examCtx = document.getElementById('examAveragesChart').getContext('2d');
-        const examData = <%- JSON.stringify(examAverages) %>;
-        new Chart(examCtx, {
-            type: 'bar',
-            data: {
-                labels: Object.keys(examData),
-                datasets: [{
-                    label: 'متوسط الدرجة',
-                    data: Object.values(examData),
-                    backgroundColor: 'rgba(75, 192, 192, 0.6)',
-                    borderColor: 'rgba(75, 192, 192, 1)',
-                    borderWidth: 1
-                }]
-            },
-            options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }
-        });
-
-        // 2. Level Distribution Chart
-        const levelCtx = document.getElementById('levelDistributionChart').getContext('2d');
-        const levelData = <%- JSON.stringify(levelDistribution) %>;
-        new Chart(levelCtx, {
-            type: 'doughnut',
-            data: {
-                labels: Object.keys(levelData),
-                datasets: [{
-                    data: Object.values(levelData),
-                    backgroundColor: ['#16a34a', '#65a30d', '#facc15', '#fb923c', '#ef4444'],
-                }]
-            },
-            options: { responsive: true, maintainAspectRatio: false }
+        document.addEventListener('DOMContentLoaded', function() {
+            if (document.getElementById('dashboard-content')) {
+                // Tab & Search functionality
+                const tabs = document.querySelectorAll('.tab-button');
+                const tabContents = document.querySelectorAll('.tab-content');
+                tabs.forEach(tab => { 
+                    tab.addEventListener('click', () => { 
+                        const target = tab.getAttribute('data-tab'); 
+                        tabs.forEach(t => t.classList.remove('active')); 
+                        tab.classList.add('active'); 
+                        tabContents.forEach(content => { 
+                            content.classList.remove('active'); 
+                            if (content.id === target) { 
+                                content.classList.add('active'); 
+                            } 
+                        }); 
+                    }); 
+                });
+                const searchInput = document.getElementById('studentSearch');
+                if (searchInput) {
+                    searchInput.addEventListener('keyup', () => { 
+                        const filter = searchInput.value.toLowerCase().trim(); 
+                        const rows = document.querySelectorAll('#studentTable .student-row'); 
+                        rows.forEach(row => { 
+                            const name = row.querySelector('.student-name').textContent.toLowerCase(); 
+                            row.style.display = name.includes(filter) ? '' : 'none'; 
+                        }); 
+                    });
+                }
+                
+                // Chart.js Initializations
+                const chartOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { font: { family: 'Cairo' } } }, tooltip: { bodyFont: { family: 'Cairo' }, titleFont: { family: 'Cairo' } } }, scales: { x: { ticks: { font: { family: 'Cairo' } } }, y: { ticks: { font: { family: 'Cairo' } } } } };
+                
+                // Exam Comparison Chart
+                const examCompCtx = document.getElementById('examComparisonChart')?.getContext('2d');
+                if (examCompCtx) {
+                    const examCompData = <%- JSON.stringify(examComparisonData || {labels:[], sessionAvgs:[], examAvgs:[]}) %>;
+                    new Chart(examCompCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: examCompData.labels,
+                            datasets: [{ label: 'متوسط الامتحانات', data: examCompData.examAvgs, backgroundColor: 'rgba(79, 70, 229, 0.8)' }, { label: 'متوسط الحصص العام', data: examCompData.sessionAvgs, backgroundColor: 'rgba(107, 114, 128, 0.5)' }]
+                        },
+                        options: { ...chartOptions, scales: { y: { beginAtZero: true } } } // Y-axis max is not fixed to 10 anymore
+                    });
+                }
+    //لانؤ
+                // Performance Gap Chart
+                const perfGapCtx = document.getElementById('performanceGapChart')?.getContext('2d');
+                if(perfGapCtx) {
+                    const perfGapData = <%- JSON.stringify(performanceGapData || {labels:[], examAvgs:[], colors:[]}) %>;
+                    new Chart(perfGapCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: perfGapData.labels,
+                            datasets: [{ label: 'متوسط الامتحانات', data: perfGapData.averages, backgroundColor: perfGapData.colors }]
+                        },
+                        options: { ...chartOptions, indexAxis: 'y', scales: { x: { beginAtZero: true } }, plugins: { legend: { display: false } } }
+                    });
+                }
+    
+                // Attendance Correlation Charts
+                const scatterTooltipCallback = function(context) { const point = context.dataset.data[context.dataIndex]; return `${point.label}: حضور ${point.x.toFixed(0)}% - متوسط ${point.y.toFixed(1)}`; };
+                
+                const sessionCtx = document.getElementById('attendanceVsSessionChart')?.getContext('2d');
+                if(sessionCtx) {
+                    const sessionData = <%- JSON.stringify(attendanceVsSessionPerformance || []) %>;
+                    new Chart(sessionCtx, {
+                        type: 'scatter',
+                        data: { datasets: [{ label: 'أداء الحصص', data: sessionData, backgroundColor: 'rgba(79, 70, 229, 0.7)' }] },
+                        options: { ...chartOptions, scales: { x: { title: { display: true, text: 'نسبة الحضور (%)' } }, y: { title: { display: true, text: 'متوسط درجات الحصص' }, beginAtZero: true, suggestedMax: 10 } }, plugins: { tooltip: { callbacks: { label: scatterTooltipCallback } } } }
+                    });
+                }
+    
+                const examCtx = document.getElementById('attendanceVsExamChart')?.getContext('2d');
+                if (examCtx) {
+                    const examData = <%- JSON.stringify(attendanceVsExamPerformance || []) %>;
+                    new Chart(examCtx, {
+                        type: 'scatter',
+                        data: { datasets: [{ label: 'أداء الامتحانات', data: examData, backgroundColor: 'rgba(14, 165, 233, 0.7)' }] },
+                        options: { ...chartOptions, scales: { x: { title: { display: true, text: 'نسبة الحضور (%)' } }, y: { title: { display: true, text: 'متوسط درجات الامتحانات' }, beginAtZero: true } }, plugins: { tooltip: { callbacks: { label: scatterTooltipCallback } } } }
+                    });
+                }
+            }
         });
     </script>
 </body>

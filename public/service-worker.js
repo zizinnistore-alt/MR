@@ -1,42 +1,64 @@
-// اسم الكاش لتخزين الملفات
-const CACHE_NAME = 'student-report-cache-v1';
+const CACHE_NAME = 'student-report-cache-v5'; // غيّرنا الرقم لفرض التحديث
 
-// قائمة الملفات الأساسية التي نريد تخزينها (هيكل التطبيق)
-const urlsToCache = [
+// قائمة الملفات المحلية فقط التي يمكننا التحكم بها وتخزينها بأمان
+const APP_SHELL_URLS = [
   '/', // الصفحة الرئيسية
-  'https://cdn.tailwindcss.com',
-  'https://cdn.jsdelivr.net/npm/framer-motion@10/dist/framer-motion.umd.js',
-  'https://cdn.jsdelivr.net/npm/chart.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
-  'https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap',
   '/manifest.webmanifest',
   '/icons/icon-192x192.png',
   '/icons/icon-512x512.png'
+  // تمت إزالة كل الروابط الخارجية (CDNs) من هنا
 ];
 
-// 1. عند "تثبيت" الـ Service Worker، قم بتخزين الملفات الأساسية
 self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => {
-        console.log('Opened cache');
-        return cache.addAll(urlsToCache);
-      })
-  );
+  event.waitUntil(caches.open(CACHE_NAME).then(cache => {
+    console.log('SW: Caching app shell');
+    return cache.addAll(APP_SHELL_URLS);
+  }));
 });
 
-// 2. عند طلب أي ملف (fetch)، تحقق إذا كان موجوداً في الكاش أولاً
-self.addEventListener('fetch', event => {
-  event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-        // إذا وجدناه في الكاش، أرجعه مباشرة
-        if (response) {
-          return response;
+self.addEventListener('activate', event => {
+  event.waitUntil(caches.keys().then(cacheNames => {
+    return Promise.all(
+      cacheNames.map(cacheName => {
+        if (cacheName !== CACHE_NAME) {
+          return caches.delete(cacheName);
         }
-        // إذا لم نجده، اطلبه من الشبكة
-        return fetch(event.request);
+      })
+    );
+  }));
+});
+
+self.addEventListener('fetch', event => {
+  // --- الجزء المُعدّل ---
+
+  // 1. تجاهل كل الطلبات التي ليست من نوع GET
+  if (event.request.method !== 'GET') return;
+
+  // 2. تجاهل الطلبات التي لا تبدأ بـ http (مثل chrome-extension://)
+  if (!event.request.url.startsWith('http')) return;
+
+  // 3. تجاهل طلبات المصادقة أو التحليلات إذا كانت موجودة (للمستقبل)
+  if (event.request.url.includes('google-analytics')) return;
+
+  // استراتيجية Cache-First للطلبات الصالحة فقط
+  event.respondWith(
+    caches.match(event.request).then(cachedResponse => {
+      // إذا كان الطلب موجوداً في الكاش، أرجعه
+      if (cachedResponse) {
+        return cachedResponse;
       }
-    )
+      
+      // إذا لم يكن موجوداً، اطلبه من الشبكة، خزنه في الكاش، ثم أرجعه
+      return fetch(event.request).then(networkResponse => {
+        // تأكد من أن الرد صالح قبل تخزينه
+        if (networkResponse && networkResponse.status === 200) {
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then(cache => {
+            cache.put(event.request, responseToCache);
+          });
+        }
+        return networkResponse;
+      });
+    })
   );
 });

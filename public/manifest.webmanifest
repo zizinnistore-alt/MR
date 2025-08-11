@@ -1,8 +1,9 @@
 {
-    "name": "تقرير الطالب الدراسي",
+    "name": "التقرير الدراسي",
     "short_name": "تقريري",
-    "description": "تطبيق لمتابعة الأداء الدراسي والدرجات للطلاب.",
-    "start_url": "/",
+    "description": "تطبيق لمتابعة الأداء الدراسي.",
+    "start_url": ".",
+    "scope": "/",
     "display": "standalone",
     "background_color": "#ffffff",
     "theme_color": "#4f46e5",
@@ -10,12 +11,14 @@
       {
         "src": "/icons/icon-192x192.png",
         "type": "image/png",
-        "sizes": "192x192"
+        "sizes": "192x192",
+        "purpose": "any maskable"
       },
       {
         "src": "/icons/icon-512x512.png",
         "type": "image/png",
-        "sizes": "512x512"
+        "sizes": "512x512",
+        "purpose": "any maskable"
       }
     ]
   }

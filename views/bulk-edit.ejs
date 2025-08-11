@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تعديل جماعي - <%= itemName %></title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Cairo', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <div class="container mx-auto p-6">
+        <header class="mb-6">
+            <a href="/manage" class="text-indigo-600 hover:text-indigo-800 mb-4 inline-block">← العودة للوحة الإدارة</a>
+            <h1 class="text-3xl font-bold text-gray-800">تعديل جماعي</h1>
+            <p class="text-xl text-gray-600">أنت الآن تقوم بتعديل: <span class="font-bold text-teal-700"><%= itemName %></span></p>
+        </header>
+
+        <form action="/manage/bulk-edit" method="POST">
+            <!-- حقول مخفية لإرسال نوع واسم العنصر المعدل -->
+            <input type="hidden" name="editType" value="<%= editType %>">
+            <input type="hidden" name="itemName" value="<%= itemName %>">
+
+            <div class="bg-white p-6 rounded-xl shadow-lg">
+                
+                <!-- === NEW: SEARCH INPUT === -->
+                <div class="mb-4">
+                    <label for="studentSearch" class="sr-only">بحث عن طالب</label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                             <i class="fas fa-search text-gray-400"></i>
+                        </div>
+                        <input type="text" id="studentSearch" class="block w-full p-3 pr-10 text-sm text-gray-900 border border-gray-300 rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500" placeholder="ابحث بالاسم أو الكود المميز...">
+                    </div>
+                </div>
+                <!-- === END: SEARCH INPUT === -->
+                
+                <div class="overflow-x-auto max-h-[60vh]">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50 sticky top-0 z-10">
+                            <tr>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">اسم الطالب</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">الكود المميز</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">القيمة الحالية</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    <% if (editType === 'sessionAttendance') { %>
+                                        تعديل الحضور
+                                    <% } else { %>
+                                        تعديل الدرجة
+                                    <% } %>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="students-table-body" class="bg-white divide-y divide-gray-200">
+                            <% students.forEach(student => { %>
+                                <%
+                                    let currentValue = 'N/A';
+                                    if (editType === 'exam') {
+                                        currentValue = student.data.exams && student.data.exams[itemName] != null ? student.data.exams[itemName] : 'لم تسجل';
+                                    } else {
+                                        const session = student.data.sessions.find(s => s.uuid === itemName);
+                                        if (session) {
+                                            if (editType === 'sessionGrade') {
+                                                currentValue = session.grade != null ? session.grade : 'لم تسجل';
+                                            } else if (editType === 'sessionAttendance') {
+                                                currentValue = session.attendance || 'غائب';
+                                            }
+                                        }
+                                    }
+                                %>
+                                <!-- أضفنا class جديد student-row هنا -->
+                                <tr class="student-row">
+                                    <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-900 student-name"><%= student.student_name %></td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-gray-500 student-code"><%= student.unique_code %></td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-gray-500"><%= currentValue %></td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <% if (editType === 'sessionAttendance') { %>
+                                            <select name="<%= student.unique_code %>" class="p-2 border rounded-md w-full">
+                                                <option value="حاضر" <%= currentValue === 'حاضر' ? 'selected' : '' %>>حاضر</option>
+                                                <option value="غائب" <%= currentValue === 'غائب' ? 'selected' : '' %>>غائب</option>
+                                            </select>
+                                        <% } else { %>
+                                            <input type="number" 
+                                                   name="<%= student.unique_code %>" 
+                                                   value="<%= typeof currentValue === 'number' ? currentValue : '' %>"
+                                                   placeholder="أدخل الدرجة"
+                                                   class="p-2 border rounded-md w-full focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                                        <% } %>
+                                    </td>
+                                </tr>
+                            <% }); %>
+                        </tbody>
+                    </table>
+                     <!-- === NEW: NO RESULTS MESSAGE === -->
+                    <p id="noResultsMessage" class="text-center text-gray-500 py-8" style="display: none;">
+                        لا توجد نتائج مطابقة لبحثك.
+                    </p>
+                </div>
+
+                <div class="mt-6 text-left">
+                    <button type="submit" class="bg-indigo-600 text-white px-8 py-3 rounded-lg hover:bg-indigo-700 font-bold text-lg">
+                        <i class="fas fa-save mr-2"></i> حفظ جميع التغييرات
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- === NEW: JAVASCRIPT FOR SEARCH === -->
+    <script>
+        const searchInput = document.getElementById('studentSearch');
+        const tableBody = document.getElementById('students-table-body');
+        const allRows = tableBody.getElementsByClassName('student-row');
+        const noResultsMessage = document.getElementById('noResultsMessage');
+
+        searchInput.addEventListener('keyup', (e) => {
+            const searchTerm = e.target.value.toLowerCase().trim();
+            let visibleRows = 0;
+
+            for (let i = 0; i < allRows.length; i++) {
+                const row = allRows[i];
+                const name = row.querySelector('.student-name').textContent.toLowerCase();
+                const code = row.querySelector('.student-code').textContent.toLowerCase();
+
+                // التحقق مما إذا كان الاسم أو الكود يحتوي على نص البحث
+                if (name.includes(searchTerm) || code.includes(searchTerm)) {
+                    row.style.display = ''; // إظهار الصف
+                    visibleRows++;
+                } else {
+                    row.style.display = 'none'; // إخفاء الصف
+                }
+            }
+
+            // إظهار أو إخفاء رسالة "لا توجد نتائج"
+            if (visibleRows === 0) {
+                noResultsMessage.style.display = 'block';
+            } else {
+                noResultsMessage.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>

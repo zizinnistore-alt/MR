@@ -9,6 +9,12 @@
     <style> body { font-family: 'Cairo', sans-serif; } </style>
 </head>
 <body class="bg-gray-100">
+    <% if (success) { %>
+        <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-6" role="alert">
+            <p class="font-bold">نجاح</p>
+            <p><%= success %></p>
+        </div>
+    <% } %>
     <div class="container mx-auto p-6">
         <header class="flex justify-between items-center mb-6">
             <h1 class="text-3xl font-bold text-gray-800">تعديل بيانات: <span class="text-indigo-600"><%= student.student_name %></span></h1>
@@ -65,7 +71,15 @@
                     <% }); %>
                 </div>
             </div>
-
+            <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+                <h3 class="text-xl font-bold mb-4 text-gray-700">رسالة شخصية للطالب</h3>
+                <p class="text-sm text-gray-500 mb-3">هذه الرسالة ستظهر في أعلى صفحة الطالب عند فتحه لتقريره.</p>
+                <textarea name="personal_message" 
+                          class="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:outline-none" 
+                          rows="3" 
+                          placeholder="اكتب رسالة أو ملاحظة هنا..."><%= student.data.personal_message || '' %></textarea>
+            </div>
+            
             <!-- Submit Button -->
             <div class="text-left">
                 <button type="submit" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg">

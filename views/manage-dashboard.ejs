@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale-1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>إدارة الطلاب والحصص</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -38,14 +38,10 @@
                                     <i class="fas fa-qrcode"></i>
                                     <span class="hidden sm:inline">عرض QR</span>
                                 </button>
-                                
-                                <!-- === الزر الجديد === -->
                                 <a href="/manage/session/scan/<%= session.id %>" class="bg-indigo-500 text-white px-3 py-2 rounded-lg hover:bg-indigo-600 flex items-center gap-2" title="تسجيل الحضور باستخدام الكاميرا">
                                     <i class="fas fa-camera"></i>
                                     <span class="hidden sm:inline">تسجيل بالكاميرا</span>
                                 </a>
-                                <!-- === نهاية الزر الجديد === -->
-                            
                                 <label class="inline-flex items-center cursor-pointer" title="تفعيل الحضور لهذه الحصة">
                                     <span class="ml-3 text-sm font-medium text-gray-900 hidden sm:inline">تفعيل</span>
                                     <input type="checkbox" class="sr-only peer qr-toggle" data-session-id="<%= session.id %>" <%= session.qr_enabled ? 'checked' : '' %>>
@@ -70,6 +66,111 @@
                 <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-semibold">إضافة حصة</button>
             </form>
         </div>
+
+        <!-- NEW SECTION: Exams and Data Management -->
+        <div class="grid md:grid-cols-2 gap-8 mb-8">
+            <!-- Exam Management -->
+<div class="bg-white p-6 rounded-xl shadow-lg">
+    <h2 class="text-2xl font-bold mb-4">إدارة الامتحانات الكبرى</h2>
+    
+    <!-- Add Exam Form -->
+    <div>
+        <h3 class="font-semibold text-lg mb-2 text-gray-700">إضافة امتحان جديد</h3>
+        <p class="text-sm text-gray-500 mb-4">سيؤدي إضافة امتحان جديد إلى إتاحته لجميع الطلاب المسجلين مع درجة ابتدائية فارغة.</p>
+        <form action="/manage/exam/add" method="POST" class="flex gap-4">
+            <input type="text" name="examName" placeholder="اسم الامتحان الجديد (مثال: امتحان الشهر الأول)" class="flex-grow p-2 border rounded-md focus:ring-2 focus:ring-indigo-500 focus:outline-none" required>
+            <button type="submit" class="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 font-semibold shrink-0">إضافة امتحان</button>
+        </form>
+    </div>
+
+    <hr class="my-6 border-gray-200">
+
+    <!-- NEW: Delete Exam Section -->
+    <div>
+        <h3 class="font-semibold text-lg mb-2 text-gray-700">حذف امتحان حالي</h3>
+        <p class="text-sm text-red-500 mb-4"><b>تحذير:</b> حذف امتحان سيقوم بإزالته هو وجميع درجاته نهائياً من سجلات كل الطلاب.</p>
+        <div class="space-y-3 max-h-60 overflow-y-auto pr-2">
+            <% if (examNames && examNames.length > 0) { %>
+                <% examNames.forEach(examName => { %>
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <span class="font-medium text-gray-800"><%= examName %></span>
+                        <form action="/manage/exam/delete" method="POST" class="delete-exam-form m-0">
+                            <!-- Hidden input to send the exam name -->
+                            <input type="hidden" name="examName" value="<%= examName %>">
+                            <button type="submit" class="bg-red-500 text-white px-4 py-1 rounded-md hover:bg-red-600 text-sm font-semibold flex items-center gap-2" title="حذف هذا الامتحان نهائياً">
+                                <i class="fas fa-trash-alt"></i>
+                                <span>حذف</span>
+                            </button>
+                        </form>
+                    </div>
+                <% }); %>
+            <% } else { %>
+                <p class="text-center text-gray-500 py-4">لا توجد امتحانات كبرى مضافة لحذفها.</p>
+            <% } %>
+        </div>
+    </div>
+</div>
+            <!-- Backup & Restore -->
+            <div class="bg-white p-6 rounded-xl shadow-lg">
+                <h2 class="text-2xl font-bold mb-4">النسخ الاحتياطي والاستعادة</h2>
+                <div class="flex flex-col space-y-4">
+                    <a href="/manage/backup" class="text-center w-full bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 font-semibold">
+                        <i class="fas fa-download mr-2"></i>تحميل نسخة احتياطية
+                    </a>
+                    <hr>
+                    <form id="restoreForm" action="/manage/restore" method="POST" enctype="multipart/form-data" class="space-y-3">
+                         <div>
+                            <label for="backupFile" class="block text-sm font-medium text-gray-700">رفع ملف استعادة (.json)</label>
+                            <input type="file" name="backupFile" id="backupFile" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100" required>
+                        </div>
+                        <div>
+                             <label for="restorePassword" class="block text-sm font-medium text-gray-700">كلمة سر الإدارة</label>
+                             <input type="password" name="password" id="restorePassword" placeholder="أدخل كلمة السر للتأكيد" class="mt-1 block w-full p-2 border rounded-md focus:ring-2 focus:ring-red-500 focus:outline-none" required>
+                        </div>
+                        <button type="submit" class="w-full bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 font-semibold">
+                            <i class="fas fa-upload mr-2"></i>استعادة البيانات
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+<!-- NEW SECTION: Bulk Edit -->
+<div class="bg-white p-6 rounded-xl shadow-lg mb-8">
+    <h2 class="text-2xl font-bold mb-4">التعديل الجماعي للدرجات والحضور</h2>
+    <p class="text-sm text-gray-500 mb-4">اختر عنصراً من القائمة ثم اضغط على "تعديل" لتحديث بيانات جميع الطلاب دفعة واحدة.</p>
+    <form id="bulkEditForm" action="/manage/bulk-edit" method="GET" class="flex flex-col sm:flex-row gap-4">
+        <select id="bulkEditSelect" class="flex-grow p-2 border rounded-md focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            <option value="" disabled selected>-- اختر عنصراً للتعديل --</option>
+            
+            <optgroup label="الامتحانات الكبرى">
+                <% if (examNames && examNames.length > 0) { %>
+                    <% examNames.forEach(examName => { %>
+                        <option value="exam:<%= examName %>"><%= examName %></option>
+                    <% }); %>
+                <% } else { %>
+                    <option disabled>لا توجد امتحانات كبرى مضافة بعد</option>
+                <% } %>
+            </optgroup>
+
+            <optgroup label="درجات الحصص">
+                 <% sessions.forEach(session => { %>
+                    <!-- نستخدم session_uuid كقيمة لضمان التفرد -->
+                    <option value="sessionGrade:<%= session.session_uuid %>">درجة: <%= session.name %></option>
+                <% }); %>
+            </optgroup>
+            
+            <optgroup label="حضور الحصص">
+                <% sessions.forEach(session => { %>
+                    <option value="sessionAttendance:<%= session.session_uuid %>">حضور: <%= session.name %></option>
+                <% }); %>
+            </optgroup>
+        </select>
+        
+        <button type="submit" class="bg-teal-600 text-white px-6 py-2 rounded-lg hover:bg-teal-700 font-semibold">
+            <i class="fas fa-edit mr-2"></i>تعديل جماعي
+        </button>
+    </form>
+</div>
 
         <!-- Students List -->
         <div class="bg-white p-6 rounded-xl shadow-lg">
@@ -119,8 +220,16 @@
 
     <script>
         // --- Configuration ---
-        const QR_CODE_REFRESH_SECONDS = 500; // ** غير هذه القيمة لتطابق قيمة 'step' في الخادم **
+        const QR_CODE_REFRESH_SECONDS = 500;
         const QR_CODE_REFRESH_MILLISECONDS = QR_CODE_REFRESH_SECONDS * 1000;
+        
+        // --- Restore Confirmation ---
+        document.getElementById('restoreForm').addEventListener('submit', function(event) {
+            const confirmation = confirm('تحذير شديد! هذا الإجراء سيحذف جميع البيانات الحالية (الطلاب والحصص) ويستبدلها بالبيانات من الملف المرفوع. لا يمكن التراجع عن هذا الإجراء. هل أنت متأكد أنك تريد المتابعة؟');
+            if (!confirmation) {
+                event.preventDefault();
+            }
+        });
 
         // --- Session Deletion Logic ---
         document.querySelectorAll('.delete-form').forEach(form => {
@@ -217,6 +326,57 @@
                 }
             });
         }
+
+        // --- Bulk Edit Form Logic ---
+document.getElementById('bulkEditForm').addEventListener('submit', function(event) {
+    event.preventDefault();
+    const select = document.getElementById('bulkEditSelect');
+    const selectedValue = select.value;
+    
+    if (!selectedValue) {
+        alert('الرجاء اختيار عنصر من القائمة أولاً!');
+        return;
+    }
+
+    const [type, ...nameParts] = selectedValue.split(':');
+    const name = nameParts.join(':'); // لإعادة تجميع الاسم إذا كان يحتوي على ":"
+
+    // بناء رابط الـ URL مع query parameters
+    const url = `/manage/bulk-edit?type=${encodeURIComponent(type)}&name=${encodeURIComponent(name)}`;
+    
+    // توجيه المتصفح إلى الرابط الجديد
+    window.location.href = url;
+});
+// --- Exam Deletion Confirmation (نسخة محسنة) ---
+document.querySelectorAll('.delete-exam-form').forEach(form => {
+    form.addEventListener('submit', function(event) {
+        // امنع السلوك الافتراضي أولاً وقبل كل شيء
+        event.preventDefault(); 
+        
+        try {
+            const examNameInput = form.querySelector('input[name="examName"]');
+            if (!examNameInput) {
+                console.error("لم يتم العثور على حقل اسم الامتحان في النموذج.");
+                alert("خطأ في الواجهة: لا يمكن تحديد الامتحان المطلوب حذفه.");
+                return;
+            }
+            
+            const examName = examNameInput.value;
+            const confirmation = confirm(`هل أنت متأكد تماماً من رغبتك في حذف امتحان "${examName}"؟\n\nسيتم حذف هذا الامتحان وجميع درجات الطلاب المرتبطة به بشكل نهائي ولا يمكن التراجع عن هذا الإجراء.`);
+            
+            if (confirmation) {
+                // إذا وافق المستخدم، قم بإرسال النموذج برمجيًا
+                console.log(`إرسال طلب لحذف الامتحان: ${examName}`);
+                form.submit(); 
+            } else {
+                console.log("تم إلغاء عملية الحذف من قبل المستخدم.");
+            }
+        } catch (e) {
+            console.error("حدث خطأ في JavaScript أثناء محاولة الحذف:", e);
+            alert("حدث خطأ غير متوقع. يرجى مراجعة الكونسول.");
+        }
+    });
+});
     </script>
 </body>
 </html>
